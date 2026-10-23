@@ -1,32 +1,13 @@
-# RinconCasino
-# Neon Vault — GitHub Pages
+# RinconCasino — wager controls update
 
-A static, browser-only casino-style arcade using **fictional demo credits**. It includes Blackjack, Roulette, Slots, Keno, Chess, Farkle, Battleship, and Rocket.
+This is a static GitHub Pages version of RinconCasino with clearer wager selection and consistent win/loss accounting. It requires no server, build step, or third-party JavaScript library.
 
-## Publish it with GitHub Pages
+## What's changed
 
-This package is arranged so `index.html` is at the repository root and includes a GitHub Actions workflow. No Node.js, bundler, server, API key, or build step is required.
-
-1. Create a GitHub repository for the site.
-2. Extract this ZIP and upload **the contents of this folder** to the repository root. Make sure `index.html`, `.nojekyll`, and the `.github` folder are at the root—not inside an extra `neon-vault-github-pages` folder.
-3. Commit the files to the repository's `main` branch.
-4. In the repository, open **Settings → Pages**. Under **Build and deployment → Source**, select **GitHub Actions**.
-5. Open the **Actions** tab and check the **Deploy static site to GitHub Pages** workflow. The first deployment starts after you push to `main`.
-6. When the workflow succeeds, open **Settings → Pages** to find your published URL. It will usually look like `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/`.
-
-Every subsequent push to `main` redeploys the site. You can also run the workflow manually from the Actions tab.
-
-## Demo wallet behavior
-
-- A fresh browser profile starts with **2,000 fictional credits**.
-- The balance is saved in that browser's `localStorage`. It is not an online account and does not synchronize across devices or browsers.
-- The refill button adds demo credits for testing. Clearing browser site data resets local storage; the next visit initializes the wallet to 2,000.
-- If you previously used an earlier Neon Vault version, the versioned wallet migration moves it to the 2,000-credit setup once. After that, the current saved balance is retained.
-
-## Important limitations
-
-This is a single-player static demo, not a real-money gambling service. Credits have no cash value and cannot be deposited, transferred, or redeemed. GitHub Pages does not add a backend, authentication, server-side balance validation, or multiplayer. The wallet is client-side and can be changed by the visitor; do not use it for anything involving real money or prizes.
-
-## Local preview
-
-Open `index.html` in a modern browser, or serve this folder with any static file server. There are no external runtime dependencies; the styling and game logic are contained in `index.html`.
+- Start with **2,000 fictional credits** on a new browser profile; saved balances continue to persist in that browser.
+- Set any whole-number wager from **10 credits up to your available balance**.
+- Use the minus/plus controls, quick wager chips, **½ BAL**, or **MAX**.
+- Every wager is deducted when a round is played. Losing rounds lose the stake; wins return the gross payout including the original stake; ties return the stake.
+- Recent rounds show the **net result** (profit, loss, or push), not just the gross payout.
+- Multi-step rounds warn before leaving and forfeit the active wager only after confirmation.
+- Credits remain local fictional play credits. No real-money payments or cash-outs are connected.
