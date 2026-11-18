@@ -15,3 +15,41 @@
 @media(max-width:390px){.brand-mark{width:31px;height:31px}.brand-copy{display:none}.wallet-pill{margin-left:auto}.game-grid{grid-template-columns:1fr}.game-card{min-height:165px}.game-card-art{float:left}.game-aside{grid-template-columns:1fr}.quick-card{min-height:58px}}
 
 .poker-seats{display:grid;grid-template-columns:repeat(3,minmax(145px,1fr));align-items:stretch;gap:9px}.poker-seat{min-width:0}.poker-seat .playing-cards{min-height:66px;margin:8px auto}.poker-seat .playing-card{width:43px;height:61px;padding:5px;font-size:12px}.poker-seat .playing-card .suit{font-size:17px}
+
+
+/* Interactive Three.js multiplayer arena */
+.arena3d-stage{position:relative;width:min(100%,1120px);height:430px;min-height:320px;margin:14px auto 18px;overflow:hidden;border:1px solid #667451;border-radius:13px;background:radial-gradient(ellipse at 50% 30%,#334637,#101812 72%);box-shadow:inset 0 0 55px #0009,0 15px 35px #0006;isolation:isolate;touch-action:none;cursor:grab}
+.arena3d-stage:active{cursor:grabbing}
+.arena3d-stage:before{content:"RINCON 3D ARENA  ·  DRAG TO ORBIT  ·  SCROLL TO ZOOM";position:absolute;z-index:2;top:12px;left:14px;padding:7px 10px;border:1px solid #75815a88;border-radius:5px;background:#10180fce;color:#e0d6ad;font:9px var(--mono);letter-spacing:.1em;pointer-events:none}
+.arena3d-canvas{display:block;width:100%;height:100%;outline:none}
+.arena3d-stage.arena3d-fallback{height:390px;cursor:default;background:radial-gradient(ellipse at 50% 45%,#254a38,#101711 72%)}
+.arena3d-fallback-glow{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,#688b5522,transparent 62%);pointer-events:none}
+.arena3d-fallback-table{position:absolute;left:50%;top:52%;width:68%;height:53%;transform:translate(-50%,-50%) rotateX(57deg);border:12px solid #8c7045;border-radius:50%;background:radial-gradient(ellipse,#2e6849,#183e2d 72%);box-shadow:0 25px 0 #392a1d,0 38px 35px #000b}
+.arena3d-fallback-center{position:absolute;inset:0;display:grid;place-items:center;color:#e9d9a5;font:700 16px var(--mono);letter-spacing:.18em;transform:rotateX(-57deg)}
+.arena3d-fallback-pot{position:absolute;left:50%;top:40%;z-index:1;color:#f1d98d;font:700 10px var(--mono);white-space:nowrap;transform:rotateX(-57deg) translateX(-50%)}
+.arena3d-fallback-seats{position:absolute;inset:0;pointer-events:none}
+.arena3d-fallback-seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px;padding:6px 9px;border:1px solid #778967;border-radius:8px;background:#17251fe8;color:#e7e4d4;box-shadow:0 5px 14px #0008}
+.arena3d-fallback-seat b{font-size:10px}.arena3d-fallback-seat small{font:8px var(--mono);color:#adba9a}
+.arena3d-fallback-avatar{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:2px solid #c4af73;background:linear-gradient(145deg,#7f9d76,#27372c);color:#f3ebd1}
+.arena3d-fallback-seat.seat-0{left:50%;bottom:8%;transform:translateX(-50%)}
+.arena3d-fallback-seat.seat-1{left:8%;bottom:28%}
+.arena3d-fallback-seat.seat-2{left:13%;top:12%}
+.arena3d-fallback-seat.seat-3{right:13%;top:12%}
+.arena3d-fallback-seat.seat-4{right:8%;bottom:28%}
+.arena3d-fallback-seat.seat-5{left:50%;top:4%;transform:translateX(-50%)}
+.arena3d-fallback-hint{position:absolute;right:12px;bottom:8px;color:#a5ae96;font:8px var(--mono);opacity:.8}
+.poker-seats{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));}
+.poker-seat{min-width:0}
+.folded-seat{opacity:.48;filter:grayscale(.7)}
+.poker-seat.active-seat{border-color:#d5be78;box-shadow:0 0 0 2px #d5be7838,0 0 18px #d5be7822}
+@media(max-width:760px){
+ .arena3d-stage{height:345px;min-height:300px;margin:10px auto 14px;border-radius:9px}
+ .arena3d-stage:before{top:8px;left:8px;font-size:7px;padding:6px 7px}
+ .arena3d-stage.arena3d-fallback{height:325px}
+ .arena3d-fallback-table{width:76%;height:43%;border-width:8px}
+ .arena3d-fallback-seat{min-width:58px;padding:5px 6px}
+ .arena3d-fallback-seat b{font-size:8px}
+ .arena3d-fallback-seat small{font-size:7px}
+ .arena3d-fallback-avatar{width:24px;height:24px}
+ .poker-seats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
