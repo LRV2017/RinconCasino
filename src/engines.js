@@ -371,9 +371,11 @@ function mountDice(game,root,wallet){
   }
   function runPigBots(){
     const thresholds=[16,20,24];
-    s.botTotals=s.botTotals.map((total,i)=>pigBotTurn(total,thresholds[i]));
-    const winner=s.botTotals.findIndex(total=>total>=100);
-    return winner;
+    for(let i=0;i<s.botTotals.length;i++){
+      s.botTotals[i]=pigBotTurn(s.botTotals[i],thresholds[i]);
+      if(s.botTotals[i]>=100)return i;
+    }
+    return -1;
   }
   function botShip(){
     let dice=roll(5),held=[],cargo=0,need=[6,5,4];
