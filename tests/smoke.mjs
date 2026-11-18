@@ -3,8 +3,8 @@ import { gameCatalog } from "../src/catalog.js";
 import { mountGame } from "../src/engines.js";
 
 assert.equal(gameCatalog.length,56,"catalog should contain 56 distinct game types");
-assert.equal(new Set(gameCatalog.map(game=>game.id)).size,54,"game IDs must be unique");
-assert.equal(new Set(gameCatalog.map(game=>game.name)).size,54,"game names must be unique");
+assert.equal(new Set(gameCatalog.map(game=>game.id)).size,56,"game IDs must be unique");
+assert.equal(new Set(gameCatalog.map(game=>game.name)).size,56,"game names must be unique");
 assert.equal(new Set(gameCatalog.map(game=>game.category)).size,16,"catalog should contain 16 categories");
 const supported=["roulette","blackjack","baccarat","poker","videopoker","slots","keno","dice","board","wheel","scratch","draw","extra"];
 for(const game of gameCatalog){
@@ -79,6 +79,8 @@ function exercise(game,root){
       "chuck-a-luck":[{act:"roll"}],
       "crown-anchor":[{act:"roll"}],
       "bingo-75":[{act:"start"},{act:"auto"}],
+      "russian-roulette":[{act:"start"},{act:"pull"}],
+      "demons-deal":[{act:"start"},{act:"oracle"},{act:"pull"}],
       "mancala":[{act:"start"},{pit:"0"}],
       "mastermind":[{act:"start"},{slot:"0"},{act:"guess"}],
       "memory-match":[{act:"start"},{card:"0"},{card:"1"}],
