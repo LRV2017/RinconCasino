@@ -58,6 +58,9 @@ function cardMarkup(card,back) {
   const value=card.rank==="T"?"10":card.rank;
   return '<div class="playing-card '+("♥♦".includes(card.suit)?"red":"")+'"><span>'+value+'</span><span class="suit">'+card.suit+'</span><span style="align-self:flex-end;transform:rotate(180deg)">'+value+'</span></div>';
 }
+function cardText(card) {
+  return (card.rank==="T"?"10":card.rank)+card.suit;
+}
 function preflopStrength(hole) {
   const a=RANKS.indexOf(hole[0].rank)+2,b=RANKS.indexOf(hole[1].rank)+2;
   const hi=Math.max(a,b),lo=Math.min(a,b),suited=hole[0].suit===hole[1].suit,gap=hi-lo;
@@ -310,7 +313,7 @@ export function mountPoker(game,root,wallet) {
     pay(state.seats[smallBlind],5);pay(state.seats[bigBlind],10);
     state.currentBet=Math.max(...state.seats.map(s=>s.streetCommitted));
     state.currentSeat=bigBlind;
-    state.last="Blinds posted (5/10). Four opponents are at the table.";
+    state.last="Blinds posted (5/10). Five opponents are at the table.";
     processTurn();
   }
   function playerAction(type){
