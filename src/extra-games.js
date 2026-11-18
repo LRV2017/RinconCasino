@@ -439,7 +439,7 @@ function mountKlondike(game,root,wallet){
     };
     if((a==="to-foundation"||a==="foundation")&&selected){
       const cards=selectedCards(),foundation=s.foundations[a==="foundation"?Number(b.dataset.pile):SUITS.indexOf(cards[0]?.suit)]||[];
-      if(cards.length!==1||!canFoundation(cards[0],foundation)){message("Only a single valid top card can move to that foundation.");return;}
+      if(cards.length!==1||!canFoundation(cards[0],foundation)){c.message("Only a single valid top card can move to that foundation.");return;}
       foundation.push(cards[0]);removeSelected();s.moves++;checkWin();render();return;
     }
     if(b.dataset.card!==undefined){
@@ -461,7 +461,7 @@ function mountKlondike(game,root,wallet){
     }
     if(b.dataset.col!==undefined&&selected){
       const col=Number(b.dataset.col),pile=s.tableau[col],target=pile[pile.length-1],moving=selectedCards();
-      if(!moving.length||target||value(moving[0])!==13){message("Only a King can start an empty tableau column.");return;}
+      if(!moving.length||target||value(moving[0])!==13){c.message("Only a King can start an empty tableau column.");return;}
       removeSelected();pile.push(...moving);selected=null;s.moves++;checkWin();render();
     }
   }
