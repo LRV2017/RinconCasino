@@ -172,7 +172,12 @@ export function mountPoker(game,root,wallet) {
     if(state.stage!=="action")return;
     if(type==="fold"){award("bot","You folded. The bot takes the pot.");return;}
     if(type==="allin"||type==="raise") {
-      const desired=type==="allin"?state.stack:Math.min(state.stack,Math.max(20,state.currentBet*2||20));
+      const availableToCommit=state.youCommitted+state.stack;
+      const due=Math.max(0,state.currentBet-state.youCommitted);
+      const isOmaha=game.name.toLowerCase().includes("omaha");
+      const potLimitRaiseTo=state.currentBet+state.pot+due;
+      const noLimitRaiseTo=Math.max(20,state.currentBet*2||20);
+      const desired=type==="allin"?availableToCommit:Math.min(availableToCommit,isOmaha?potLimitRaiseTo:noLimitRaiseTo);
       const pay=Math.min(state.stack,Math.max(0,desired-state.youCommitted));
       if(pay<=0){result("There are no chips available to raise.","loss");return;}
       state.stack-=pay;state.youCommitted+=pay;state.pot+=pay;
