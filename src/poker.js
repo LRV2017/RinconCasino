@@ -212,6 +212,7 @@ export function mountPoker(game,root,wallet) {
     const won=awards.some(a=>a.startsWith("You "));
     const lost=!won&&you().stack<1000;
     result(state.last,won?"win":lost?"loss":"");
+    render();
   }
   function runOut(){
     while(state.board.length<5)state.board.push(state.deck.pop());
