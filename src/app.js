@@ -20,6 +20,8 @@ let history=read(STORAGE.history,[]);
 let stats=read(STORAGE.stats,{played:0,wins:0,losses:0,net:0,biggestWin:0});
 let activeCategory="All games",searchTerm="",sortMode="featured",favoritesOnly=false,popularOnly=false,botOnly=false;
 let activeGame=null,gameSession=null,toastTimer=null;
+const BOT_GAME_MODES=new Set(["liars","ceelo","bunco","ship","pig","dice-poker","bingo-75","mancala"]);
+function isBotGame(game){return game.engine==="board"||game.engine==="poker"||BOT_GAME_MODES.has(game.mode);}
 
 function fmt(n){return Math.floor(n).toLocaleString("en-US");}
 function saveBalance(){write(STORAGE.balance,balance);}
@@ -66,7 +68,7 @@ function visibleGames(){
   if(activeCategory!=="All games"&&activeCategory!=="Favorites")list=list.filter(g=>g.category===activeCategory);
   if(favoritesOnly||activeCategory==="Favorites")list=list.filter(g=>favorites.has(g.id));
   if(popularOnly)list=list.filter(g=>g.featured);
-  if(botOnly)list=list.filter(g=>g.engine==="board"||g.engine==="poker"||g.mode==="liars");
+  if(botOnly)list=list.filter(isBotGame);
   if(searchTerm){const q=searchTerm.toLowerCase();list=list.filter(g=>(g.name+" "+g.category+" "+g.description+" "+g.tags.join(" ")).toLowerCase().includes(q));}
   if(sortMode==="az")list.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sortMode==="new")list.sort((a,b)=>b.number-a.number);
@@ -79,7 +81,7 @@ function renderCategories(){
 }
 function cardMarkup(game){
   const isFav=favorites.has(game.id);
-  return '<article class="game-card" data-card="'+game.id+'"><div class="game-card-top"><span class="game-category">'+game.category.toUpperCase()+'</span><span class="game-number">#'+String(game.number).padStart(3,"0")+'</span></div><button class="favorite-star '+(isFav?"active":"")+'" data-favorite="'+game.id+'" aria-label="'+(isFav?"Remove from":"Add to")+' favorites">'+(isFav?"★":"☆")+'</button><div class="game-card-art">'+game.icon+'</div><h3>'+game.name+'</h3><p>'+game.description+'</p><div class="game-card-bottom"><small>'+(game.engine==="board"||game.engine==="poker"?"VS LOCAL BOT":game.kind==="table"?"TABLE GAME":"ARCADE")+'</small><button class="play-card" data-play="'+game.id+'">PLAY ↗</button></div></article>';
+  return '<article class="game-card" data-card="'+game.id+'"><div class="game-card-top"><span class="game-category">'+game.category.toUpperCase()+'</span><span class="game-number">#'+String(game.number).padStart(3,"0")+'</span></div><button class="favorite-star '+(isFav?"active":"")+'" data-favorite="'+game.id+'" aria-label="'+(isFav?"Remove from":"Add to")+' favorites">'+(isFav?"★":"☆")+'</button><div class="game-card-art">'+game.icon+'</div><h3>'+game.name+'</h3><p>'+game.description+'</p><div class="game-card-bottom"><small>'+(isBotGame(game)?"VS LOCAL BOTS":game.kind==="table"?"TABLE GAME":"ARCADE")+'</small><button class="play-card" data-play="'+game.id+'">PLAY ↗</button></div></article>';
 }
 function renderGrid(){
   const list=visibleGames();
@@ -100,7 +102,7 @@ function openGame(id){
   $("#gameTitle").textContent=game.name;
   $("#gameCategory").textContent=game.category.toUpperCase();
   $("#asideType").textContent=game.category;
-  $("#asideMode").textContent=game.engine==="board"||game.engine==="poker"||game.mode==="liars"?"Local bot match":"Solo table";
+  $("#asideMode").textContent=isBotGame(game)?"Local bot match":"Solo table";
   $("#rulesPanel").textContent=game.rules;
   $("#rulesPanel").hidden=true;
   $("#rulesToggle").textContent="Rules & payouts ⓘ";
