@@ -58,7 +58,7 @@ export function mountArena3D(root,initialConfig={}){
     const texture=new THREE.CanvasTexture(cardFace(label,hidden));texture.colorSpace=THREE.SRGBColorSpace;
     const material=new THREE.MeshStandardMaterial({map:texture,roughness:.68,metalness:.02});
     const card=new THREE.Mesh(new THREE.BoxGeometry(.78,.055,1.12),material);
-    card.position.set(x,1.28,z);card.rotation.y=rotation;card.castShadow=true;card.receiveShadow=true;
+    card.position.set(x,1.11,z);card.rotation.y=rotation;card.castShadow=true;card.receiveShadow=true;
     return card;
   };
   const createDie=(value,x,z,scale=.48)=>{
@@ -66,7 +66,7 @@ export function mountArena3D(root,initialConfig={}){
     const face=()=>{const c=document.createElement("canvas");c.width=128;c.height=128;const ctx=c.getContext("2d");ctx.fillStyle="#f5f1e7";ctx.fillRect(0,0,128,128);ctx.fillStyle="#252a22";const positions={1:[[64,64]],2:[[34,34],[94,94]],3:[[32,32],[64,64],[96,96]],4:[[34,34],[94,34],[34,94],[94,94]],5:[[34,34],[94,34],[64,64],[34,94],[94,94]],6:[[34,28],[94,28],[34,64],[94,64],[34,100],[94,100]]};for(const [px,py] of positions[n]){ctx.beginPath();ctx.arc(px,py,10,0,Math.PI*2);ctx.fill();}return new THREE.CanvasTexture(c);};
     const materials=[3,4,1,6,2,5].map(v=>{const texture=face();texture.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshStandardMaterial({map:texture,roughness:.45});});
     const die=new THREE.Mesh(new THREE.BoxGeometry(scale,scale,scale),materials);
-    die.position.set(x,1.72,z);die.rotation.set(.25*n,.35*n,.14*n);die.castShadow=true;
+    die.position.set(x,1.25,z);die.rotation.set(.25*n,.35*n,.14*n);die.castShadow=true;
     return die;
   };
   const addAvatar=(player,index,count)=>{
@@ -88,6 +88,9 @@ export function mountArena3D(root,initialConfig={}){
     if(player.stack!==undefined){const stack=createLabel(player.stack+" CHIPS",1.9,.4);stack.position.set(0,.15,.1);group.add(stack);}
     world.add(group);
     const dice=player.dice||[];
+    if(player.holeCards?.length){
+      player.holeCards.slice(0,5).forEach((label,i)=>world.add(createCard(label,!!player.hideCards,x+(i-(player.holeCards.length-1)/2)*.62,z+(z>0?-1.55:1.5),0)));
+    }
     dice.slice(0,5).forEach((v,i)=>world.add(createDie(v,x+(i-2)*.62,z+(z>0?-1.45:1.35),.42)));
     for(let i=dice.length;i<(player.hiddenDice||0);i++)world.add(createDie(1,x+((i%5)-2)*.6,z+(z>0?-1.4:1.4),.4));
   };
@@ -107,7 +110,7 @@ export function mountArena3D(root,initialConfig={}){
       leg.position.set(x,-.05,z);leg.castShadow=true;world.add(leg);
     }
     const players=(config.players&&config.players.length?config.players:([{name:"You",human:true},...["Rico","Maya","Ace","Nova"].map(name=>({name}))]));
-    players.forEach(addAvatar);
+    players.forEach((player,index)=>addAvatar(player,index,players.length));
     if(config.kind==="poker"){
       const board=config.board||[];
       board.forEach((c,i)=>world.add(createCard(c,false,(i-2)*.9,-.25,0)));
@@ -117,11 +120,11 @@ export function mountArena3D(root,initialConfig={}){
         for(let i=0;i<5;i++)world.add(createCard("RINCON",true,(i-2)*.9,-.25,0));
       }
       const pot=new THREE.Mesh(new THREE.CylinderGeometry(.52,.58,.18,24),new THREE.MeshStandardMaterial({color:0xb38b3f,metalness:.68,roughness:.28}));
-      pot.position.set(0,1.28,-1.65);pot.castShadow=true;world.add(pot);
+      pot.position.set(0,1.12,-1.65);pot.castShadow=true;world.add(pot);
       const chipColors=[0xc9b36e,0x20252d,0x8f3c38];
       for(let stack=0;stack<3;stack++)for(let i=0;i<4;i++){
         const chip=new THREE.Mesh(new THREE.CylinderGeometry(.23,.23,.09,24),new THREE.MeshStandardMaterial({color:chipColors[stack],metalness:.22,roughness:.42}));
-        chip.position.set(-.65+stack*.65,1.42+i*.095,-1.65);chip.castShadow=true;world.add(chip);
+        chip.position.set(-.65+stack*.65,1.1+i*.095,-1.65);chip.castShadow=true;world.add(chip);
       }
     }else{
       (config.centerDice||[]).slice(0,12).forEach((v,i)=>world.add(createDie(v,((i%6)-2.5)*.75,Math.floor(i/6)*.9-.35,.58)));
@@ -131,7 +134,7 @@ export function mountArena3D(root,initialConfig={}){
       if(config.pieces){
         config.pieces.slice(0,36).forEach((piece,i)=>{
           const token=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.12,20),new THREE.MeshStandardMaterial({color:piece.color||0xe3c56f,metalness:.16,roughness:.5}));
-          token.position.set(((i%9)-4)*.55,1.13,Math.floor(i/9)*.48-.8);token.castShadow=true;world.add(token);
+          token.position.set(((i%9)-4)*.55,1.12,Math.floor(i/9)*.48-.8);token.castShadow=true;world.add(token);
         });
       }
     }
