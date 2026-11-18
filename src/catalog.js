@@ -1,6 +1,7 @@
 const groups = [
   ["Roulette","roulette","◉","table",[
-    "European Roulette","American Roulette","French Roulette","La Partage Roulette","En Prison Roulette","Single Zero Roulette","Double Zero Roulette","Lightning Roulette","Mini Roulette","Speed Roulette","Grand Roulette","VIP Roulette","Classic Roulette","Golden Wheel","Midnight Roulette","Royal Roulette","Casino Royale Wheel","High Roller Roulette","Zero Edge Roulette","Rincon Roulette"]],
+    "European Roulette","American Roulette","French Roulette","French Roulette — La Partage","French Roulette — La Partage Table","Single Zero Roulette","Double Zero Roulette","Classic Roulette — Gold Room","Mini Table Roulette","Speed Table Roulette","Grand Roulette","VIP Roulette","Classic Roulette","Golden Wheel Roulette","Midnight Roulette","Royal Roulette","Casino Royale Wheel","High Roller Roulette","Zero Edge Roulette","Rincon Roulette"
+  ]],
   ["Blackjack","blackjack","♠","table",[
     "Blackjack — Classic","Atlantic City Blackjack","Blackjack — European Room","Vegas Strip Blackjack","Blackjack — Gold Room","Blackjack — Velvet Room","Blackjack — The Garden","Blackjack — Night Lounge","Blackjack — High Stakes","Blackjack — Classic II","Blackjack — VIP Room","Blackjack — The Terrace","Blackjack — Silver Room","Blackjack — Midnight","Blackjack — Royal Table","Blackjack — Rincon Room","Blackjack — Speed Table","Blackjack — House Select","Blackjack — Private Room","Blackjack — Grand Table"
   ]],
@@ -11,12 +12,13 @@ const groups = [
     "Texas Hold'em","Texas Hold'em — Heads-Up","Texas Hold'em — Deep Stack","Pot-Limit Omaha","Texas Hold'em — Turbo Table","Texas Hold'em — Classic Table","Texas Hold'em — Night Table","Texas Hold'em — Gold Room","Texas Hold'em — Silver Room","Texas Hold'em — VIP Table","Texas Hold'em — Short Session","Texas Hold'em — High Stakes","Texas Hold'em — Rincon Room","Texas Hold'em — Grand Table","Texas Hold'em — Private Table","Texas Hold'em — 6-Max Seat","Texas Hold'em — The Terrace","Texas Hold'em — Velvet Room","Texas Hold'em — Midnight","Texas Hold'em — House Select"
   ]],
   ["Video Poker","videopoker","▣","arcade",[
-    "Jacks or Better","Jacks or Better — Gold Room","Jacks or Better — Silver Room","Jacks or Better — Classic II","Deuces Wild","Jacks or Better — VIP Table","Jacks or Better — The Terrace","Jacks or Better — Night Lounge","Deuces Wild — Gold Room","Deuces Wild — Classic Table","Jacks or Better — High Stakes","Jacks or Better — Rincon Room","Jacks or Better — Grand Table","Jacks or Better — Velvet Room","Jacks or Better — Midnight","Jacks or Better — Private Table","Jacks or Better — Premier","Jacks or Better — House Select","Jacks or Better — Royal Room","Jacks or Better — Speed Table"
+    "Jacks or Better","Jacks or Better — Gold Room","Jacks or Better — Silver Room","Jacks or Better — Classic II","Deuces Wild","Jacks or Better — VIP Table","Jacks or Better — The Terrace","Jacks or Better — Night Lounge","Jacks or Better — Garden Table","Jacks or Better — Classic Table","Jacks or Better — High Stakes","Jacks or Better — Rincon Room","Jacks or Better — Grand Table","Jacks or Better — Velvet Room","Jacks or Better — Midnight","Jacks or Better — Private Table","Jacks or Better — Premier","Jacks or Better — House Select","Jacks or Better — Royal Room","Jacks or Better — Speed Table"
   ]],
   ["Slots","slots","✦","arcade",[
     "Golden Sevens","Midnight Riches","Emerald Fortune","Lucky Lanterns","Royal Reels","Desert Gold","Neon Nights","Pearl Palace","Wild Safari","Moonlight Millions","Temple of Fortune","Cash Cascade","Dragon's Hoard","Clover Club","Pharaoh's Fortune","Crystal Cavern","Velvet Vault","Starburst Lane","Rincon Reels","Jackpot Garden"]],
   ["Keno","keno","✳","arcade",[
-    "Classic Keno","Quick Keno","10-Spot Keno","8-Spot Keno","Corner Keno","High Five Keno","Super Keno","Double Keno","Power Keno","Lucky Keno","Gold Keno","Rush Keno","80-Ball Keno","Caveman Keno","Diamond Keno","Fortune Keno","Pick 3 Keno","Pick 5 Keno","Pick 7 Keno","Rincon Keno"]],
+    "Classic Keno","Quick Keno","Keno — 10 Spot Table","Keno — 8 Spot Table","Corner Keno","High Five Keno","Super Keno","Double Keno","Power Keno","Lucky Keno","Gold Keno","Rush Keno","80-Ball Keno","Caveman Keno","Diamond Keno","Fortune Keno","Keno — Short Table","Keno — Five Spot","Keno — Seven Spot","Rincon Keno"
+  ]],
   ["Dice Games","dice","⚄","table",[
     "Craps","Sic Bo","Yahtzee","Farkle","Liar's Dice","Cee-lo","Bunco","Ship, Captain, Crew","Pig","Shut the Box","Craps — Hazard Table","Craps — Grand Table","High-Low Dice","High-Low Dice — Classic","Dice Poker","Cee-lo — House Table","Farkle — Hot Dice","Farkle — Ten Thousand","Yahtzee — House Table","Sic Bo — Grand Table"
   ]],
@@ -56,7 +58,7 @@ for (const group of groups) {
     const id = engine + "-" + String(index + 1).padStart(2,"0");
     let mode = "classic";
     if (engine === "dice") mode = ["craps","sicbo","yahtzee","farkle","liars","ceelo","bunco","ship","pig","shutbox","craps","craps","highlow","highlow","dice-poker","ceelo","farkle","farkle","yahtzee","sicbo"][index];
-    if (engine === "board") mode = ["ttt","ttt","connect4","connect4","reversi","reversi","gomoku","gomoku","battleship","battleship","checkers","checkers","nim","nim","dots","dots","morris","connect4","reversi","connect4"][index];
+    if (engine === "board") mode = ["ttt","ttt","connect4","connect4","reversi","reversi","gomoku","gomoku","battleship","battleship","checkers","checkers","nim","nim","dots","dots","dots","connect4","reversi","connect4"][index];
     if (engine === "wheel") mode = ["coin","coin","plinko","plinko","limbo","crash","mines","mines","hilo","wheel","wheel","wheel","wheel","wheel","coin","wheel","crash","mines","limbo","wheel"][index];
     const item = {
       id, number:serial++, name, category, engine, mode, kind, icon:icons[engine][index%icons[engine].length],
