@@ -84,6 +84,10 @@ export function mountArena3D(root,initialConfig={}){
     const hair=new THREE.Mesh(new THREE.SphereGeometry(.35,16,10,0,Math.PI*2,0,Math.PI*.45),new THREE.MeshStandardMaterial({color:player.human?0x30261e:[0x33271e,0x201d1c,0x4a3829,0x29232c,0x3c3028][index%5]}));
     hair.position.set(0,2.38,.08);group.add(hair);
     const label=createLabel((player.human?"YOU · ":"")+player.name,2.35,.55);label.position.set(0,3.12,.1);group.add(label);
+    if(player.active){
+      const glow=new THREE.Mesh(new THREE.TorusGeometry(.88,.07,10,40),new THREE.MeshStandardMaterial({color:0xe0c57c,emissive:0x74521e,emissiveIntensity:.7,metalness:.55}));
+      glow.rotation.x=Math.PI/2;glow.position.y=.79;group.add(glow);
+    }
     if(player.score!==undefined){const score=createLabel("SCORE · "+player.score,2.0,.42);score.position.set(0,3.62,.1);group.add(score);}
     if(player.stack!==undefined){const stack=createLabel(player.stack+" CHIPS",1.9,.4);stack.position.set(0,.15,.1);group.add(stack);}
     group.userData.avatar=true;group.userData.bobPhase=index*.9;
