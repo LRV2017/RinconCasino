@@ -202,6 +202,7 @@ function mountChess(game,root,wallet){
     return true;
   }
   function start(){
+    if(position&&!done){message="Finish or close the current match before starting another.";render();return;}
     const amount=Number(root.querySelector("#stake")?.value||0);
     if(!Number.isInteger(amount)||amount<10){message="Enter a whole-number stake of at least 10 credits.";render();return;}
     if(!wallet.charge(amount)){message="Not enough demo credits.";render();return;}
@@ -233,7 +234,7 @@ function mountChess(game,root,wallet){
   function render(){
     const symbols=["♜","♞","♝","♛","♚","♝","♞","♜"];
     const intro='<div class="game-intro"><div class="game-icon-large">♚</div><h3>'+game.name+'</h3><p>Full chessboard against a local search-based opponent. Legal moves, check, checkmate, stalemate, castling, en passant and automatic queen promotion are handled by the rules engine.</p></div>';
-    const buy='<div class="bet-controls"><label for="stake">MATCH STAKE</label><input class="bet-input" id="stake" type="number" min="10" step="10" value="100"><button class="game-action primary" data-act="start">'+(position?"New match":"Start match")+'</button><span class="tiny-note">Winner earns 2× · draw returns stake</span></div>';
+    const buy='<div class="bet-controls"><label for="stake">MATCH STAKE</label><input class="bet-input" id="stake" type="number" min="10" step="10" value="100"><button class="game-action primary" data-act="start" '+(position&&!done?"disabled":"")+'>'+(position?"New match":"Start match")+'</button><span class="tiny-note">Winner earns 2× · draw returns stake</span></div>';
     let boardHTML="";
     if(position){
       const possible=selected?legalMoves(position,"w").filter(m=>m.from.r===selected.r&&m.from.c===selected.c).map(m=>m.to.r+","+m.to.c):[];
