@@ -157,7 +157,7 @@ export function mountPoker(game,root,wallet) {
       '<button class="game-action secondary" data-act="raise" '+(!actionAllowed||active().length<2?"disabled":"")+'>Raise</button>'+
       '<button class="game-action secondary" data-act="allin" '+(!actionAllowed?"disabled":"")+'>All-in</button>'+
       '</div><div id="pokerResult" class="result-banner">'+(status||state.last)+'</div>';
-    const scenePlayers=state.seats.length?state.seats.map(seat=>({name:seat.name,human:seat.isYou,stack:seat.stack,status:seat.folded?"FOLDED":seat.allIn?"ALL IN":seat.acted?"WAITING":"IN HAND"})):[{name:"YOU",human:true},...BOT_PROFILES.map(p=>({name:p.name}))];
+    const scenePlayers=state.seats.length?state.seats.map(seat=>({name:seat.name,human:seat.isYou,stack:seat.stack,status:seat.folded?"FOLDED":seat.allIn?"ALL IN":seat.acted?"WAITING":"IN HAND",holeCards:seat.hole.map(card=>cardText(card)),hideCards:!seat.isYou&&!state.showCards})):[{name:"YOU",human:true},...BOT_PROFILES.map(p=>({name:p.name}))];
     const sceneConfig={
       kind:"poker",title:game.name,pot:state.stage==="action"?potTotal():0,
       players:scenePlayers,
