@@ -94,6 +94,72 @@ export function mountArena3D(root,initialConfig={}){
     dice.slice(0,5).forEach((v,i)=>world.add(createDie(v,x+(i-2)*.62,z+(z>0?-1.45:1.35),.42)));
     for(let i=dice.length;i<(player.hiddenDice||0);i++)world.add(createDie(1,x+((i%5)-2)*.6,z+(z>0?-1.4:1.4),.4));
   };
+  const addBoardObjects=()=>{
+    const data=config.boardData;
+    if(data?.grid?.length){
+      const rows=data.grid.length,cols=Math.max(...data.grid.map(row=>row.length));
+      const cell=Math.min(5.7/Math.max(rows,cols),.82),offsetX=-(cols-1)*cell/2,offsetZ=-(rows-1)*cell/2;
+      for(let r=0;r<rows;r++)for(let col=0;col<(data.grid[r]||[]).length;col++){
+        const value=data.grid[r][col],x=offsetX+col*cell,z=offsetZ+r*cell;
+        const chessLike=["chess","checkers"].includes(data.mode),alternating=(r+col)%2===0;
+        const tileColor=chessLike?(alternating?0xd6c7a4:0x56674a):(alternating?0x355644:0x294333);
+        const tile=new THREE.Mesh(new THREE.BoxGeometry(cell*.97,.085,cell*.97),new THREE.MeshStandardMaterial({color:tileColor,roughness:.85}));
+        tile.position.set(x,1.13,z);tile.receiveShadow=true;world.add(tile);
+        if(!value)continue;
+        const label=String(value),isLight=/^(X|r|R|[KQBNRP])$/.test(label);
+        const color=data.mode==="connect4"?(label==="X"?0xe0b94c:0xb84a43):data.mode==="reversi"?(label==="X"?0xe1dfcf:0x202321):data.mode==="gomoku"?(label==="X"?0x252a27:0xe3e0cf):data.mode==="checkers"?(label.toLowerCase()==="r"?0xb44a40:0x252a29):data.mode==="chess"?(isLight?0xe9e2cc:0x252b2d):(label==="X"?0xe3c36c:0x86a9a7);
+        const piece=new THREE.Mesh(new THREE.CylinderGeometry(cell*.33,cell*.38,.19,24),new THREE.MeshStandardMaterial({color,metalness:.14,roughness:.42}));
+        piece.position.set(x,1.28,z);piece.castShadow=true;world.add(piece);
+        if(data.mode==="chess"){
+          const cap=new THREE.Mesh(new THREE.SphereGeometry(cell*.24,16,12),new THREE.MeshStandardMaterial({color,metalness:.1,roughness:.45}));
+          cap.position.set(x,1.48,z);world.add(cap);
+        }else if(data.mode==="checkers"&&label===label.toUpperCase()){
+          const crown=new THREE.Mesh(new THREE.TorusGeometry(cell*.2,.045,6,20),new THREE.MeshStandardMaterial({color:0xe3c46e,metalness:.65}));
+          crown.rotation.x=Math.PI/2;crown.position.set(x,1.41,z);world.add(crown);
+        }
+      }
+    }
+    if(config.numberGrid?.length){
+      const rows=config.numberGrid,cell=.72;
+      rows.forEach((row,r)=>row.forEach((value,col)=>{
+        const x=(col-2)*cell,z=(r-2)*cell,marked=!!(config.numberMarked&&config.numberMarked[r]?.[col]);
+        const tile=new THREE.Mesh(new THREE.BoxGeometry(.66,.11,.66),new THREE.MeshStandardMaterial({color:marked?0x9c8450:0x3b4a37,roughness:.75}));
+        tile.position.set(x,1.16,z);tile.castShadow=true;world.add(tile);
+        const label=createLabel(value===0?"FREE":String(value),.57,.35);label.position.set(x,1.55,z);world.add(label);
+      }));
+    }
+    if(config.pits?.length===14){
+      const pits=config.pits;
+      for(let side=0;side<2;side++)for(let col=0;col<6;col++){
+        const index=side===0?12-col:col,x=(col-2.5)*.83,z=side===0?-1.18:1.18;
+        const bowl=new THREE.Mesh(new THREE.CylinderGeometry(.34,.25,.22,24),new THREE.MeshStandardMaterial({color:0x47392b,roughness:.85}));
+        bowl.position.set(x,1.23,z);world.add(bowl);
+        const count=pits[index]||0;
+        for(let stone=0;stone<Math.min(count,12);stone++){
+          const angle=stone*2.4,rad=.06+Math.floor(stone/6)*.1;
+          const marble=new THREE.Mesh(new THREE.SphereGeometry(.105,10,8),new THREE.MeshStandardMaterial({color:stone%2?0xe0c783:0xb6a36b,roughness:.42,metalness:.08}));
+          marble.position.set(x+Math.cos(angle)*rad,1.42+(stone%3)*.045,z+Math.sin(angle)*rad);world.add(marble);
+        }
+        const label=createLabel(String(count),.7,.34);label.position.set(x,1.82,z);world.add(label);
+      }
+      [6,13].forEach((index,i)=>{
+        const x=i===0?-3.3:3.3,z=0;
+        const store=new THREE.Mesh(new THREE.CylinderGeometry(.56,.58,.34,24),new THREE.MeshStandardMaterial({color:0x8a7045,roughness:.55}));
+        store.position.set(x,1.25,z);world.add(store);
+        const label=createLabel("STORE "+pits[index],1.5,.42);label.position.set(x,1.85,z);world.add(label);
+      });
+    }
+    if(config.piles?.length){
+      config.piles.forEach((count,index)=>{
+        const x=(index-(config.piles.length-1)/2)*1.55;
+        for(let n=0;n<count;n++){
+          const token=new THREE.Mesh(new THREE.CylinderGeometry(.25,.25,.16,20),new THREE.MeshStandardMaterial({color:0xcab16a,metalness:.22,roughness:.4}));
+          token.position.set(x,1.2+n*.16,0);token.castShadow=true;world.add(token);
+        }
+        const label=createLabel("PILE "+(index+1)+" · "+count,1.7,.42);label.position.set(x,2.3+Math.min(count,6)*.11,0);world.add(label);
+      });
+    }
+  };
   const buildScene=()=>{
     if(!THREE||!scene||!world)return;
     while(world.children.length){const child=world.children[0];world.remove(child);disposeObject(child);}
@@ -111,6 +177,7 @@ export function mountArena3D(root,initialConfig={}){
     }
     const players=(config.players&&config.players.length?config.players:([{name:"You",human:true},...["Rico","Maya","Ace","Nova"].map(name=>({name}))]));
     players.forEach((player,index)=>addAvatar(player,index,players.length));
+    addBoardObjects();
     if(config.kind==="poker"){
       const board=config.board||[];
       board.forEach((c,i)=>world.add(createCard(c,false,(i-2)*.9,-.25,0)));
