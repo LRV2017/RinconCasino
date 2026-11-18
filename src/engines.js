@@ -439,7 +439,7 @@ function mountDice(game,root,wallet){
       }else if(mode==="dice-poker"){
         players=[{name:"You",human:true,dice:s?s.dice:[],status:s?"YOUR ROLL":"READY"},...botNames.map(name=>{const o=s&&s.opponents&&s.opponents.find(x=>x.name===name);return {name,dice:o?o.dice:[],hiddenDice:s&&!o?5:0,status:o?"SHOWDOWN":"THINKING"};})];
       }
-      const sceneConfig={kind:"dice",title:game.name,players,centerDice:mode==="liars"?[]:mode==="dice-poker"?(s&&s.dice||[]):mode==="ceelo"?(s&&s.you||[]):mode==="bunco"?(s&&s.dice||[]):[],centerText:mode==="liars"?(s&&s.lastBid?"BID · "+s.lastBid.count+" OF "+s.lastBid.face:"HIDDEN DICE"):mode==="pig"?"RACE TO 100":mode==="bunco"?"ROUND "+(s?s.turn:0)+" / 6":mode==="ship"?"SHIP · CAPTAIN · CREW":"DICE SHOWDOWN"};
+      const sceneConfig={kind:"dice",title:game.name,players,centerDice:[],centerText:mode==="liars"?(s&&s.lastBid?"BID · "+s.lastBid.count+" OF "+s.lastBid.face:"HIDDEN DICE"):mode==="pig"?"RACE TO 100":mode==="bunco"?"ROUND "+(s?s.turn:0)+" / 6":mode==="ship"?"SHIP · CAPTAIN · CREW":"DICE SHOWDOWN"};
       if(!arena)arena=mountArena3D(root,sceneConfig);else arena.update(sceneConfig);
     }
   }
@@ -583,11 +583,11 @@ function mountDice(game,root,wallet){
       if(playerTop){finish("Cee-lo tie: you share the top roll with "+names+". Stake returned.",bet);return;}
       finish(names+" win the Cee-lo table with "+best.toFixed(2)+".",0);
     } else if(mode==="bunco"&&b.dataset.act==="bunco"){
-      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,target:1,turn:0,scores:[0,0,0,0],dice:[],done:false};}
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,target:1,turn:0,scores:[0,0,0,0],dice:[],botDice:[[],[],[]],done:false};}
       s.target=(s.turn%6)+1;
       const scoreRound=d=>d.every(x=>x===s.target)?21:d.filter(x=>x===s.target).length;
       const your=roll(3);s.scores[0]+=scoreRound(your);
-      for(let i=1;i<s.scores.length;i++)s.scores[i]+=scoreRound(roll(3));
+      s.botDice=botNames.slice(0,3).map((name,i)=>{const dice=roll(3);s.scores[i+1]+=scoreRound(dice);return dice;});
       s.dice=your;s.turn++;
       if(s.turn>=6){
         const best=Math.max(...s.scores),winners=s.scores.map((score,i)=>score===best?i:-1).filter(i=>i>=0);
@@ -604,7 +604,7 @@ function mountDice(game,root,wallet){
         while(s.holds.length<3){const need=desired[s.holds.length],ix=s.dice.findIndex((d,i)=>d===need&&!s.holds.includes(i));if(ix<0)break;s.holds.push(ix);}
         if(s.holds.length===3){
           const cargo=s.dice.filter((d,i)=>!s.holds.includes(i));s.cargo=sum(cargo);
-          s.opponents=botNames.slice(0,3).map(name=>({name,cargo:botShip().cargo}));
+          s.opponents=botNames.slice(0,3).map(name=>{const result=botShip();return {name,cargo:result.cargo,dice:result.dice};});
           const best=Math.max(s.cargo,...s.opponents.map(o=>o.cargo)),top=s.opponents.filter(o=>o.cargo===best),playerTop=s.cargo===best;
           const payout=playerTop?(top.length?s.bet:s.bet*2):0;
           finish("Your cargo "+s.cargo+". "+s.opponents.map(o=>o.name+" "+o.cargo).join(" · ")+". "+(playerTop?(top.length?"Shared top cargo.":"You win the table."):"A bot wins the cargo contest."),payout);return;
@@ -612,7 +612,7 @@ function mountDice(game,root,wallet){
         s.dice=s.dice.map((d,i)=>s.holds.includes(i)?d:roll(1)[0]);s.rolls++;s.message="Locked "+s.holds.length+" of 3 ship pieces. Roll again.";
       } else {
         const cargo=s.holds.length===3?sum(s.dice.filter((d,i)=>!s.holds.includes(i))):0;
-        s.cargo=cargo;s.opponents=botNames.slice(0,3).map(name=>({name,cargo:botShip().cargo}));
+        s.cargo=cargo;s.opponents=botNames.slice(0,3).map(name=>{const result=botShip();return {name,cargo:result.cargo,dice:result.dice};});
         const best=Math.max(cargo,...s.opponents.map(o=>o.cargo)),top=s.opponents.filter(o=>o.cargo===best),playerTop=cargo===best;
         finish("Your cargo "+cargo+". "+s.opponents.map(o=>o.name+" "+o.cargo).join(" · ")+". "+(playerTop?(top.length?"Shared top cargo.":"You win the table."):"A bot wins the cargo contest."),playerTop?(top.length?s.bet:s.bet*2):0);return;
       }
