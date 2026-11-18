@@ -103,15 +103,15 @@ function mountThreeCardPoker(game,root,wallet){
     const b=e.target.closest("[data-act]");if(!b)return;
     if(b.dataset.act==="deal"||b.dataset.act==="again"){if(s&&!s.done&&!s.revealed)return;const bet=c.takeBet();if(!bet)return;s={stake:bet,bet,deck:deck(),player:[],dealer:[],revealed:false,done:false};for(let i=0;i<3;i++){s.player.push(s.deck.pop());s.dealer.push(s.deck.pop());}render("Ante posted. Play or fold.");}
     else if(!s||s.done||s.revealed)return;
-    else if(b.dataset.act==="fold"){settle(s.stake,0,"You folded. The ante is lost.","loss");}
+    else if(b.dataset.act==="fold"){c.settle(s.stake,0,"You folded. The ante is lost.","loss");}
     else if(b.dataset.act==="play"){
       if(!c.chargeAdditional(s.bet)){return;}
       s.stake+=s.bet;s.revealed=true;
       const you=rankThree(s.player),dealer=rankThree(s.dealer),qualifies=dealer[0]>1||(dealer[0]===1&&dealer[1]>=12),result=cmp(you,dealer);
-      if(!qualifies){settle(s.stake,s.bet*3,"Dealer does not qualify. Ante pays 1:1; play bet pushes.");return;}
-      if(result>0){const bonus=you[0]===6?5:you[0]===5?4:you[0]===4?1:0;settle(s.stake,s.bet*(4+bonus),"You win with "+handLabel(you)+". Dealer shows "+handLabel(dealer)+".");}
-      else if(result===0)settle(s.stake,s.bet*2,"Tie. Both wagers are returned.");
-      else settle(s.stake,0,"Dealer wins with "+handLabel(dealer)+".");
+      if(!qualifies){c.settle(s.stake,s.bet*3,"Dealer does not qualify. Ante pays 1:1; play bet pushes.");return;}
+      if(result>0){const bonus=you[0]===6?5:you[0]===5?4:you[0]===4?1:0;c.settle(s.stake,s.bet*(4+bonus),"You win with "+handLabel(you)+". Dealer shows "+handLabel(dealer)+".");}
+      else if(result===0)c.settle(s.stake,s.bet*2,"Tie. Both wagers are returned.");
+      else c.settle(s.stake,0,"Dealer wins with "+handLabel(dealer)+".");
     }
   });
   render("Ante, then choose Play or Fold.");return c;
@@ -125,10 +125,10 @@ function mountCasinoWar(game,root,wallet){
   }
   c.bind(e=>{
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
-    if(a==="deal"||a==="again"){const bet=c.takeBet();if(!bet)return;s={stake:bet,bet,deck:deck(),player:null,dealer:null,tied:false,done:false};s.player=s.deck.pop();s.dealer=s.deck.pop();const d=value(s.player)-value(s.dealer);if(d>0)settle(bet,bet*2,"You win the opening draw.", "win");else if(d<0)settle(bet,0,"Dealer wins the opening draw.","loss");else{s.tied=true;render("War! The cards tie. Choose to surrender or go to war.");}}
+    if(a==="deal"||a==="again"){const bet=c.takeBet();if(!bet)return;s={stake:bet,bet,deck:deck(),player:null,dealer:null,tied:false,done:false};s.player=s.deck.pop();s.dealer=s.deck.pop();const d=value(s.player)-value(s.dealer);if(d>0)c.settle(bet,bet*2,"You win the opening draw.", "win");else if(d<0)c.settle(bet,0,"Dealer wins the opening draw.","loss");else{s.tied=true;render("War! The cards tie. Choose to surrender or go to war.");}}
     else if(!s||s.done||!s.tied)return;
-    else if(a==="surrender")settle(s.bet,Math.floor(s.bet/2),"You surrender and recover half your wager.");
-    else if(a==="war"){const extra=s.bet*3;if(!c.chargeAdditional(extra)){return;}s.stake+=extra;s.deck.pop();s.deck.pop();s.deck.pop();s.player=s.deck.pop();s.dealer=s.deck.pop();s.tied=false;const d=value(s.player)-value(s.dealer);if(d>0)settle(s.stake,s.bet*8,"You win the war. The 3× side wager pays 1:1.");else if(d<0)settle(s.stake,0,"Dealer wins the war.");else settle(s.stake,s.stake,"Second tie. All wagers push.");}
+    else if(a==="surrender")c.settle(s.bet,Math.floor(s.bet/2),"You surrender and recover half your wager.");
+    else if(a==="war"){const extra=s.bet*3;if(!c.chargeAdditional(extra)){return;}s.stake+=extra;s.deck.pop();s.deck.pop();s.deck.pop();s.player=s.deck.pop();s.dealer=s.deck.pop();s.tied=false;const d=value(s.player)-value(s.dealer);if(d>0)c.settle(s.stake,s.bet*8,"You win the war. The 3× side wager pays 1:1.");else if(d<0)c.settle(s.stake,0,"Dealer wins the war.");else c.settle(s.stake,s.stake,"Second tie. All wagers push.");}
   });
   render();return c;
 }
@@ -141,8 +141,8 @@ function mountRedDog(game,root,wallet){
   }
   c.bind(e=>{
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
-    if(a==="deal"||a==="again"){const bet=c.takeBet();if(!bet)return;const d=deck(),a=d.pop(),b=d.pop(),gap=Math.abs(value(a)-value(b))-1;s={stake:bet,bet,a,b,gap,deck:d,third:null,done:false};if(gap===0)settle(bet,bet,"Pair. Your wager pushes.");else if(gap<0)settle(bet,bet*12,"Consecutive cards. Automatic 11:1 win.");else render("Spread is "+gap+". Draw a card between them to win.");}
-    else if(a==="draw"&&s&&!s.done&&!s.third){s.third=s.deck.pop();const v=value(s.third),low=Math.min(value(s.a),value(s.b)),high=Math.max(value(s.a),value(s.b));if(v>low&&v<high){const mult=s.gap===1?6:s.gap===2?5:s.gap===3?3:2;settle(s.bet,s.bet*mult,"Third card lands in the spread. "+mult+"× total return.");}else settle(s.bet,0,"Third card misses the spread.");}
+    if(a==="deal"||a==="again"){const bet=c.takeBet();if(!bet)return;const d=deck(),a=d.pop(),b=d.pop(),gap=Math.abs(value(a)-value(b))-1;s={stake:bet,bet,a,b,gap,deck:d,third:null,done:false};if(gap===0)c.settle(bet,bet,"Pair. Your wager pushes.");else if(gap<0)c.settle(bet,bet*12,"Consecutive cards. Automatic 11:1 win.");else render("Spread is "+gap+". Draw a card between them to win.");}
+    else if(a==="draw"&&s&&!s.done&&!s.third){s.third=s.deck.pop();const v=value(s.third),low=Math.min(value(s.a),value(s.b)),high=Math.max(value(s.a),value(s.b));if(v>low&&v<high){const mult=s.gap===1?6:s.gap===2?5:s.gap===3?3:2;c.settle(s.bet,s.bet*mult,"Third card lands in the spread. "+mult+"× total return.");}else c.settle(s.bet,0,"Third card misses the spread.");}
   });
   render();return c;
 }
@@ -157,14 +157,14 @@ function mountCaribbeanStud(game,root,wallet){
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
     if(a==="deal"||a==="again"){if(s&&!s.done&&!s.revealed)return;const bet=c.takeBet();if(!bet)return;const d=deck();s={stake:bet,bet,deck:d,player:Array.from({length:5},()=>d.pop()),dealer:Array.from({length:5},()=>d.pop()),revealed:false,done:false};render("Choose Raise or Fold.");}
     else if(!s||s.done||s.revealed)return;
-    else if(a==="fold")settle(s.stake,0,"You fold. Ante is lost.");
+    else if(a==="fold")c.settle(s.stake,0,"You fold. Ante is lost.");
     else if(a==="raise"){
       const raise=s.bet*2;if(!c.chargeAdditional(raise)){return;}s.stake+=raise;s.revealed=true;
       const pr=rankFive(s.player),dr=rankFive(s.dealer);s.dealerRank=dr;
       const dealerQualifies=dr[0]>0||(dr[0]===0&&dr[1]===14&&dr[2]>=13);
-      if(!dealerQualifies){settle(s.stake,s.bet*4,"Dealer does not qualify. Ante wins 1:1 and raise pushes.");return;}
-      const result=cmp(pr,dr);if(result>0)settle(s.stake,s.bet*6,"You beat the dealer with "+handLabel(pr)+". Ante and raise both pay 1:1.");
-      else if(result===0)settle(s.stake,s.stake,"Tie. All wagers push.");else settle(s.stake,0,"Dealer wins with "+handLabel(dr)+".");
+      if(!dealerQualifies){c.settle(s.stake,s.bet*4,"Dealer does not qualify. Ante wins 1:1 and raise pushes.");return;}
+      const result=cmp(pr,dr);if(result>0)c.settle(s.stake,s.bet*6,"You beat the dealer with "+handLabel(pr)+". Ante and raise both pay 1:1.");
+      else if(result===0)c.settle(s.stake,s.stake,"Tie. All wagers push.");else c.settle(s.stake,0,"Dealer wins with "+handLabel(dr)+".");
     }
   });
   render();return c;
@@ -179,7 +179,7 @@ function mountLetItRide(game,root,wallet){
   function finish(){
     const final=s.player.concat(s.community),r=rankFive(final);
     const mult=r[0]===1?(r[1]>=10?1:0):([0,0,2,3,5,8,11,50,200][r[0]]||0);
-    const gross=mult>0?s.activeUnits*s.bet*(1+mult):0;s.finished=true;settle(s.stake,gross,"You made "+handLabel(r)+". Paytable return "+mult+":1.");
+    const gross=mult>0?s.activeUnits*s.bet*(1+mult):0;s.finished=true;c.settle(s.stake,gross,"You made "+handLabel(r)+". Paytable return "+mult+":1.");
   }
   c.bind(e=>{
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
@@ -222,9 +222,9 @@ function mountPaiGow(game,root,wallet){
       const high=s.selected.map(i=>s.player[i]),low=s.player.filter((x,i)=>!s.selected.includes(i)),my={high,low,hr:rankFive(high),lr:splitRank(low)},bot=bestHouse(s.deck.splice(0,7));
       // House-way chooses the strongest five-card hand, then the strongest two-card remainder.
       const highResult=cmp(my.hr,bot.hr),lowResult=cmp(my.lr,bot.lr);s.result={my,bot};s.done=true;
-      if(highResult>0&&lowResult>0)settle(s.bet,s.bet*2,"You win both hands. High: "+handLabel(my.hr)+". Low: "+my.lr.join("-")+".");
-      else if(highResult<0&&lowResult<0)settle(s.bet,0,"House wins both hands.");
-      else settle(s.bet,s.bet,"Pai Gow push: the hands split.");
+      if(highResult>0&&lowResult>0)c.settle(s.bet,s.bet*2,"You win both hands. High: "+handLabel(my.hr)+". Low: "+my.lr.join("-")+".");
+      else if(highResult<0&&lowResult<0)c.settle(s.bet,0,"House wins both hands.");
+      else c.settle(s.bet,s.bet,"Pai Gow push: the hands split.");
     }
   });
   render();return c;
@@ -241,7 +241,7 @@ function mountDiceSideBet(game,root,wallet,mode){
   c.bind(e=>{
     const b=e.target.closest("[data-act],[data-pick]");if(!b)return;
     if(b.dataset.pick){pick=Number(b.dataset.pick);render();return;}
-    if(b.dataset.act==="roll"||b.dataset.act==="again"){const bet=c.takeBet();if(!bet)return;const dice=Array.from({length:3},()=>1+Math.floor(Math.random()*6)),hits=dice.filter(x=>x===pick).length,mult=hits===3?4:hits===2?3:hits===1?2:0,payout=bet*mult;s={dice};settle(bet,payout,hits+" matching dice. "+(hits?"Payout "+mult+"×.":"No matches."));}
+    if(b.dataset.act==="roll"||b.dataset.act==="again"){const bet=c.takeBet();if(!bet)return;const dice=Array.from({length:3},()=>1+Math.floor(Math.random()*6)),hits=dice.filter(x=>x===pick).length,mult=hits===3?4:hits===2?3:hits===1?2:0,payout=bet*mult;s={dice};c.settle(bet,payout,hits+" matching dice. "+(hits?"Payout "+mult+"×.":"No matches."));}
   });
   render();return c;
 }
@@ -266,9 +266,9 @@ function mountBingo(game,root,wallet){
     s.drawn.push(ball);
     for(const card of [s.player,...s.bots])for(let i=0;i<25;i++)if(card.grid[Math.floor(i/5)][i%5]===ball)card.marked.add(i);
     const playerWin=bingo(s.player),botWin=s.bots.some(bingo);
-    if(playerWin&&botWin){s.done=true;settle(s.bet,s.bet,"Bingo tie — player and house complete a line on the same ball.");return;}
-    if(playerWin){s.done=true;settle(s.bet,s.bet*4,"BINGO! You complete a line on ball "+ball+".");return;}
-    if(botWin){s.done=true;settle(s.bet,0,"A house card called Bingo first on ball "+ball+".");return;}
+    if(playerWin&&botWin){s.done=true;c.settle(s.bet,s.bet,"Bingo tie — player and house complete a line on the same ball.");return;}
+    if(playerWin){s.done=true;c.settle(s.bet,s.bet*4,"BINGO! You complete a line on ball "+ball+".");return;}
+    if(botWin){s.done=true;c.settle(s.bet,0,"A house card called Bingo first on ball "+ball+".");return;}
     render("Ball "+ball+" drawn. No line yet.");
   }
   c.bind(e=>{
