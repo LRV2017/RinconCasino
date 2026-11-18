@@ -759,6 +759,7 @@ function mountRussianRoulette(game,root,wallet){
     if(act==="start"||act==="again"){start();return;}
     if(!s||s.done||s.turn!==0||act!=="pull")return;
     if(pull(s.players[0]))return;
+    if(s.players[0].lives<=0){finish("You are out of the game. The remaining bots keep the table.",0);return;}
     s.turn=nextLiving(s.players,0);
     botsPlay();
   });
@@ -867,6 +868,7 @@ function mountDevilsChamber(game,root,wallet){
       if(!target||target.lives<=0){c.message("Choose a player who is still in The Pit.","loss");return;}
       const outcome=drawFor(s.players[0],target,s.hint);s.hint=null;
       if(checkWinner())return;
+      if(s.players[0].lives<=0){finish("You have been eliminated from The Pit.",0);return;}
       if(outcome.extra&&s.players[0].lives>0){render("Safe self-target! You earned another turn.");return;}
       s.turn=nextLiving(s.players,0);botsPlay();
     }
