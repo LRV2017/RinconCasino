@@ -165,7 +165,7 @@ export function mountPoker(game,root,wallet) {
     const winner=live()[0],amount=potTotal();
     if(winner)winner.stack+=amount;
     state.pot=0;state.stage="showdown";state.showCards=false;
-    state.last=(winner&&winner.isYou?"You":" "+(winner?winner.name:"A player"))+" win "+amount+" chips. Everyone else folded.";
+    state.last=(winner?(winner.isYou?"You":winner.name):"A player")+(winner&&winner.isYou?" win ":" wins ")+amount+" chips. Everyone else folded.";
     result(state.last,winner&&winner.isYou?"win":"");
   }
   function finishShowdown(){
