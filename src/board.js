@@ -111,10 +111,10 @@ function gomokuScore(b,r,c,mark){
   }
   return score;
 }
-function gomokuAI(b){
-  let candidates=[];for(let r=0;r<15;r++)for(let c=0;c<15;c++)if(!b[r][c]&&b.some((row,rr)=>row.some((v,cc)=>v&&Math.abs(rr-r)<=2&&Math.abs(cc-c)<=2)))candidates.push({r,c});
+function gomokuAI(board){
+  let candidates=[];for(let r=0;r<15;r++)for(let c=0;c<15;c++)if(!board[r][c]&&board.some((row,rr)=>row.some((v,cc)=>v&&Math.abs(rr-r)<=2&&Math.abs(cc-c)<=2)))candidates.push({r,c});
   if(!candidates.length)return {r:7,c:7};
-  candidates.sort((a,b)=>gomokuScore(b,a.r,a.c,"O")-gomokuScore(b,b.r,b.c,"O"));
+  candidates.sort((a,b)=>gomokuScore(board,b.r,b.c,"O")-gomokuScore(board,a.r,a.c,"O"));
   return candidates[0];
 }
 function checkMoves(board,side){
@@ -189,12 +189,18 @@ function mountBoard(game,root,wallet){
     const ai=c4AI(s.board);if(ai!==undefined)c4Drop(s.board,ai,"O");if(c4Win(s.board,"O")){end("bot","The bot connects four. Its minimax search found the line.");return;}if(s.board[0].every(Boolean)){end("tie","Board full. Draw.");return;}render();
   }
   function playRev(r,c){
-    if(done||s.turn!=="X")return;const m=revMoves(s.board,"X").find(x=>x.r===r&&x.c===c);if(!m)return;revPlay(s.board,"X",m);
-    const replies=revMoves(s.board,"O");if(replies.length)revPlay(s.board,"O",revAI(s.board));else s.passes++;
+    if(done)return;
+    if(s.turn==="X"&&!revMoves(s.board,"X").length){
+      if(!revMoves(s.board,"O").length){const mine=s.board.flat().filter(x=>x==="X").length,bot=s.board.flat().filter(x=>x==="O").length;end(mine>bot?"you":mine<bot?"bot":"tie","Final count — you "+mine+", bot "+bot+".");return;}
+      const passBot=revAI(s.board);if(passBot)revPlay(s.board,"O",passBot);render();return;
+    }
+    const m=revMoves(s.board,"X").find(x=>x.r===r&&x.c===c);if(!m)return;revPlay(s.board,"X",m);
+    const replies=revMoves(s.board,"O");if(replies.length)revPlay(s.board,"O",revAI(s.board));
     const mine=s.board.flat().filter(x=>x==="X").length,bot=s.board.flat().filter(x=>x==="O").length;
-    if(!revMoves(s.board,"X").length&&!revMoves(s.board,"O").length||s.passes>1){end(mine>bot?"you":mine<bot?"bot":"tie","Final count — you "+mine+", bot "+bot+".");return;}render();
+    if(!revMoves(s.board,"X").length&&!revMoves(s.board,"O").length){end(mine>bot?"you":mine<bot?"bot":"tie","Final count — you "+mine+", bot "+bot+".");return;}
+    render();
   }
-  function playGomoku(r,c){
+function playGomoku(r,c){
     if(done||s.board[r][c])return;s.board[r][c]="X";s.moves++;if(gomokuWinner(s.board,"X")){end("you","Five in a row. You win.");return;}
     const ai=gomokuAI(s.board);s.board[ai.r][ai.c]="O";s.moves++;if(gomokuWinner(s.board,"O")){end("bot","The bot completes five in a row.");return;}if(s.moves>=225){end("tie","Full board. Draw.");return;}render();
   }
@@ -272,6 +278,6 @@ function mountBoard(game,root,wallet){
     else if(b.dataset.dot)playDots(b.dataset.dot,Number(b.dataset.r),Number(b.dataset.c));
   }
   root.addEventListener("click",click);render();
-  return {close:()=>{},destroy:()=>root.removeEventListener("click",click)};
+  return {close:()=>{if(stake&&!done){done=true;wallet.settle(stake,0,game.name);}},destroy:()=>root.removeEventListener("click",click)};
 }
 export { mountBoard };
