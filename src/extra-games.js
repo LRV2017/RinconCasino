@@ -108,7 +108,7 @@ function mountThreeCardPoker(game,root,wallet){
       if(!c.chargeAdditional(s.bet)){return;}
       s.stake+=s.bet;s.revealed=true;
       const you=rankThree(s.player),dealer=rankThree(s.dealer),qualifies=dealer[0]>1||(dealer[0]===1&&dealer[1]>=12),result=cmp(you,dealer);
-      if(!qualifies){settle(s.stake,s.bet*2,"Dealer does not qualify. Ante pays 1:1; play bet pushes.");return;}
+      if(!qualifies){settle(s.stake,s.bet*3,"Dealer does not qualify. Ante pays 1:1; play bet pushes.");return;}
       if(result>0){const bonus=you[0]===6?5:you[0]===5?4:you[0]===4?1:0;settle(s.stake,s.bet*(4+bonus),"You win with "+handLabel(you)+". Dealer shows "+handLabel(dealer)+".");}
       else if(result===0)settle(s.stake,s.bet*2,"Tie. Both wagers are returned.");
       else settle(s.stake,0,"Dealer wins with "+handLabel(dealer)+".");
@@ -179,7 +179,7 @@ function mountLetItRide(game,root,wallet){
   function finish(){
     const final=s.player.concat(s.community),r=rankFive(final);
     const mult=r[0]===1?(r[1]>=10?1:0):([0,0,2,3,5,8,11,50,200][r[0]]||0);
-    const gross=s.activeUnits*s.bet*(1+mult);s.finished=true;settle(s.stake,gross,"You made "+handLabel(r)+". Paytable return "+mult+":1.");
+    const gross=mult>0?s.activeUnits*s.bet*(1+mult):0;s.finished=true;settle(s.stake,gross,"You made "+handLabel(r)+". Paytable return "+mult+":1.");
   }
   c.bind(e=>{
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
@@ -252,7 +252,7 @@ function mountBingo(game,root,wallet){
     const colRanges=[[1,15],[16,30],[31,45],[46,60],[61,75]];
     const cols=colRanges.map(([a,b])=>{const nums=Array.from({length:b-a+1},(_,i)=>a+i);for(let i=nums.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}return nums.slice(0,5).sort((x,y)=>x-y);});
     const grid=Array.from({length:5},(_,r)=>Array.from({length:5},(_,col)=>r===2&&col===2?0:cols[col][r]));
-    return {grid,marked:new Set([0])};
+    return {grid,marked:new Set([12])};
   }
   function bingo(card){const g=card.grid,m=card.marked;for(let r=0;r<5;r++)if(g[r].every((n,col)=>m.has(r*5+col)))return true;for(let col=0;col<5;col++)if(g.every((row,r)=>m.has(r*5+col)))return true;if([0,1,2,3,4].every(i=>m.has(i*5+i))||[0,1,2,3,4].every(i=>m.has(i*5+(4-i))))return true;return false;}
   function render(status="Start a round and draw numbered balls.",type=""){
@@ -266,9 +266,9 @@ function mountBingo(game,root,wallet){
     s.drawn.push(ball);
     for(const card of [s.player,...s.bots])for(let i=0;i<25;i++)if(card.grid[Math.floor(i/5)][i%5]===ball)card.marked.add(i);
     const playerWin=bingo(s.player),botWin=s.bots.some(bingo);
-    if(playerWin&&botWin){settle(s.bet,s.bet,"Bingo tie — player and house complete a line on the same ball.");return;}
-    if(playerWin){settle(s.bet,s.bet*4,"BINGO! You complete a line on ball "+ball+".");return;}
-    if(botWin){settle(s.bet,0,"A house card called Bingo first on ball "+ball+".");return;}
+    if(playerWin&&botWin){s.done=true;settle(s.bet,s.bet,"Bingo tie — player and house complete a line on the same ball.");return;}
+    if(playerWin){s.done=true;settle(s.bet,s.bet*4,"BINGO! You complete a line on ball "+ball+".");return;}
+    if(botWin){s.done=true;settle(s.bet,0,"A house card called Bingo first on ball "+ball+".");return;}
     render("Ball "+ball+" drawn. No line yet.");
   }
   c.bind(e=>{
