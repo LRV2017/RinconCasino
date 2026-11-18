@@ -20,7 +20,7 @@ let history=read(STORAGE.history,[]);
 let stats=read(STORAGE.stats,{played:0,wins:0,losses:0,net:0,biggestWin:0});
 let activeCategory="All games",searchTerm="",sortMode="featured",favoritesOnly=false,popularOnly=false,botOnly=false;
 let activeGame=null,gameSession=null,toastTimer=null;
-const BOT_GAME_MODES=new Set(["liars","ceelo","bunco","ship","pig","dice-poker","bingo-75","mancala"]);
+const BOT_GAME_MODES=new Set(["liars","ceelo","bunco","ship","pig","dice-poker","bingo-75","mancala","russian-roulette","devils-chamber"]);
 function isBotGame(game){return game.engine==="board"||game.engine==="poker"||BOT_GAME_MODES.has(game.mode);}
 
 function fmt(n){return Math.floor(n).toLocaleString("en-US");}
