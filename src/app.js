@@ -45,6 +45,7 @@ const wallet={
     if(!Number.isInteger(amount)||amount<1||amount>balance)return false;
     balance-=amount;updateBalance();return true;
   },
+  refund(amount){balance+=Math.max(0,Math.floor(Number(amount)||0));updateBalance();},
   settle(amount,payout,gameName){
     const gross=Math.max(0,Math.floor(Number(payout)||0));
     balance+=gross;stats.played++;const net=gross-amount;
