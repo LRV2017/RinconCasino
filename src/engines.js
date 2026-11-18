@@ -1,5 +1,6 @@
 import { mountPoker } from "./poker.js";
 import { mountBoard } from "./board.js";
+import { mountExtraGame } from "./extra-games.js";
 
 function cardDeck(decks) {
   const suits=["♠","♥","♦","♣"],ranks=["A","2","3","4","5","6","7","8","9","10","J","Q","K"],out=[];
@@ -634,6 +635,7 @@ function mountDraw(game,root,wallet){
   render();return {close:()=>{},destroy:off};
 }
 export function mountGame(game,root,wallet){
+  if(game.engine==="extra")return mountExtraGame(game,root,wallet);
   if(game.engine==="poker")return mountPoker(game,root,wallet);
   if(game.engine==="board")return mountBoard(game,root,wallet);
   if(game.engine==="roulette")return mountRoulette(game,root,wallet);

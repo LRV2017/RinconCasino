@@ -1,7 +1,7 @@
 name: Rincon Casino checks
 on:
   push:
-    branches: ["main", "mega-casino-rebuild"]
+    branches: ["main", "mega-casino-rebuild", "genuine-game-expansion"]
   pull_request:
     branches: ["main"]
 jobs:
