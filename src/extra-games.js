@@ -46,37 +46,58 @@ function combos(items,size){
   go(0,[]);return out;
 }
 function makeGame(game,root,wallet){
-  let state=null,listener=null;
+  let state=null,listener=null,settled=false,activeStake=0;
   const intro='<div class="game-intro"><div class="game-icon-large">'+esc(game.icon||"✦")+'</div><h3>'+esc(game.name)+'</h3><p>'+esc(game.description)+'</p></div>';
   const balance=()=>Math.floor(wallet.balance).toLocaleString();
   function betInput(defaultValue=25){return '<div class="bet-controls"><label for="extraStake">STAKE</label><input id="extraStake" class="bet-input" type="number" min="10" step="5" value="'+defaultValue+'"><span class="tiny-note">'+balance()+' credits available</span></div>';}
   function takeBet(){
+    if(activeStake>0&&!settled){message("Finish the current round before starting another.","loss");return null;}
     const amount=Number(root.querySelector("#extraStake")?.value||0);
     if(!Number.isInteger(amount)||amount<10){message("Enter a whole-number stake of at least 10 credits.","loss");return null;}
     if(!wallet.charge(amount)){message("Not enough fictional credits.","loss");return null;}
-    return amount;
+    settled=false;activeStake=amount;return amount;
+  }
+  function chargeAdditional(amount){
+    if(!Number.isInteger(amount)||amount<1||!wallet.charge(amount)){message("Not enough fictional credits for that action.","loss");return false;}
+    activeStake+=amount;return true;
+  }
+  function refund(amount){
+    const value=Math.min(activeStake,Math.max(0,Math.floor(amount)));
+    if(value){wallet.refund(value);activeStake-=value;}
   }
   function settle(stake,payout,text){
+    if(settled)return;
     if(state)state.done=true;
+    settled=true;activeStake=0;
     wallet.settle(stake,Math.max(0,Math.floor(payout)),game.name);
-    render(text,payout>stake?"win":payout<stake?"loss":"");
+    const el=root.querySelector("#extraResult");
+    if(el){el.textContent=text;el.className="result-banner"+(payout>stake?" win":payout<stake?" loss":"");}
+    root.innerHTML+='<div class="action-row"><button class="game-action primary" data-act="again">Play another round</button></div>';
   }
-  function message(text,type=""){const el=root.querySelector("#extraResult");if(el){el.textContent=text;el.className="result-banner"+(type?" "+type:"");}else render(text,type);}
+  function message(text,type=""){const el=root.querySelector("#extraResult");if(el){el.textContent=text;el.className="result-banner"+(type?" "+type:"");}else root.innerHTML+='<div class="result-banner">'+esc(text)+'</div>';}
   function page(body,status="Ready to play.",type=""){
     root.innerHTML=intro+body+'<div id="extraResult" class="result-banner '+type+'">'+esc(status)+'</div>';
   }
-  function bind(handler){listener=handler;root.addEventListener("click",handler);}
+  function bind(handler){
+    listener=e=>{
+      const button=e.target.closest("[data-act]");
+      const action=button?.dataset.act;
+      if(settled&&!["again","deal","start"].includes(action))return;
+      handler(e);
+    };
+    root.addEventListener("click",listener);
+  }
   function render(status="Ready to play.",type=""){if(state&&state.render)state.render(status,type);}
-  function close(){if(state&&!state.done&&state.stake){wallet.settle(state.stake,0,game.name);state.done=true;}}
+  function close(){if(activeStake>0&&!settled){wallet.settle(activeStake,0,game.name);activeStake=0;settled=true;if(state)state.done=true;}}
   function destroy(){if(listener)root.removeEventListener("click",listener);}
-  return {game,root,wallet,intro,betInput,takeBet,settle,message,page,bind,render,get state(){return state;},set state(v){state=v;},close,destroy};
+  return {game,root,wallet,intro,betInput,takeBet,chargeAdditional,refund,settle,message,page,bind,render,get state(){return state;},set state(v){state=v;},close,destroy};
 }
 
 function mountThreeCardPoker(game,root,wallet){
   const c=makeGame(game,root,wallet);let s=null;
   function render(status="Choose Play or Fold.",type=""){
     const body=s?'<div class="tiny-note">DEALER · '+(s.revealed?"REVEALED":"HIDDEN")+'</div><div class="playing-cards">'+s.dealer.map(x=>card(x,!s.revealed)).join("")+'</div><div class="tiny-note">YOUR THREE-CARD HAND · '+(s.revealed?handLabel(rankThree(s.player)):"")+'</div><div class="playing-cards">'+s.player.map(x=>card(x)).join("")+'</div><div class="action-row">'+(!s.revealed?'<button class="game-action primary" data-act="play">Play (match ante)</button><button class="game-action danger" data-act="fold">Fold</button>':'<button class="game-action primary" data-act="again">New hand</button>')+'</div>':'<div class="table-felt"><h3>Three-card poker</h3><p class="muted">Build the best three-card poker hand. Ante first, then play for an equal amount or fold.</p><div class="action-row"><button class="game-action primary" data-act="deal">Deal hand</button></div></div>';
-    c.page(c.betInput()+body,status,type);
+    c.state=s;c.page(c.betInput()+body,status,type);
   }
   c.bind(e=>{
     const b=e.target.closest("[data-act]");if(!b)return;
@@ -84,7 +105,7 @@ function mountThreeCardPoker(game,root,wallet){
     else if(!s||s.done||s.revealed)return;
     else if(b.dataset.act==="fold"){settle(s.stake,0,"You folded. The ante is lost.","loss");}
     else if(b.dataset.act==="play"){
-      if(!wallet.charge(s.bet)){message("You need another ante-sized wager to play.","loss");return;}
+      if(!c.chargeAdditional(s.bet)){return;}
       s.stake+=s.bet;s.revealed=true;
       const you=rankThree(s.player),dealer=rankThree(s.dealer),qualifies=dealer[0]>1||(dealer[0]===1&&dealer[1]>=12),result=cmp(you,dealer);
       if(!qualifies){settle(s.stake,s.bet*2,"Dealer does not qualify. Ante pays 1:1; play bet pushes.");return;}
@@ -107,7 +128,7 @@ function mountCasinoWar(game,root,wallet){
     if(a==="deal"||a==="again"){const bet=c.takeBet();if(!bet)return;s={stake:bet,bet,deck:deck(),player:null,dealer:null,tied:false,done:false};s.player=s.deck.pop();s.dealer=s.deck.pop();const d=value(s.player)-value(s.dealer);if(d>0)settle(bet,bet*2,"You win the opening draw.", "win");else if(d<0)settle(bet,0,"Dealer wins the opening draw.","loss");else{s.tied=true;render("War! The cards tie. Choose to surrender or go to war.");}}
     else if(!s||s.done||!s.tied)return;
     else if(a==="surrender")settle(s.bet,Math.floor(s.bet/2),"You surrender and recover half your wager.");
-    else if(a==="war"){const extra=s.bet*3;if(!wallet.charge(extra)){message("Not enough credits for the 3× war wager.","loss");return;}s.stake+=extra;s.deck.pop();s.deck.pop();s.deck.pop();s.player=s.deck.pop();s.dealer=s.deck.pop();s.tied=false;const d=value(s.player)-value(s.dealer);if(d>0)settle(s.stake,s.bet*8,"You win the war. The 3× side wager pays 1:1.");else if(d<0)settle(s.stake,0,"Dealer wins the war.");else settle(s.stake,s.stake,"Second tie. All wagers push.");}
+    else if(a==="war"){const extra=s.bet*3;if(!c.chargeAdditional(extra)){return;}s.stake+=extra;s.deck.pop();s.deck.pop();s.deck.pop();s.player=s.deck.pop();s.dealer=s.deck.pop();s.tied=false;const d=value(s.player)-value(s.dealer);if(d>0)settle(s.stake,s.bet*8,"You win the war. The 3× side wager pays 1:1.");else if(d<0)settle(s.stake,0,"Dealer wins the war.");else settle(s.stake,s.stake,"Second tie. All wagers push.");}
   });
   render();return c;
 }
@@ -138,7 +159,7 @@ function mountCaribbeanStud(game,root,wallet){
     else if(!s||s.done||s.revealed)return;
     else if(a==="fold")settle(s.stake,0,"You fold. Ante is lost.");
     else if(a==="raise"){
-      const raise=s.bet*2;if(!wallet.charge(raise)){message("Not enough credits for the 2× raise.","loss");return;}s.stake+=raise;s.revealed=true;
+      const raise=s.bet*2;if(!c.chargeAdditional(raise)){return;}s.stake+=raise;s.revealed=true;
       const pr=rankFive(s.player),dr=rankFive(s.dealer);s.dealerRank=dr;
       const dealerQualifies=dr[0]>0||(dr[0]===0&&dr[1]===14&&dr[2]>=13);
       if(!dealerQualifies){settle(s.stake,s.bet*4,"Dealer does not qualify. Ante wins 1:1 and raise pushes.");return;}
@@ -156,14 +177,15 @@ function mountLetItRide(game,root,wallet){
     c.page(c.betInput()+body,status,type);
   }
   function finish(){
-    const final=s.player.concat(s.community),r=rankFive(final);const mult=[0,1,2,3,5,8,11,50,200][r[0]]||0;
-    const gross=s.activeUnits*s.bet*(1+mult);s.finished=true;settle(s.stake+s.activeUnits*s.bet,gross,"You made "+handLabel(r)+". Paytable return "+mult+":1.");
+    const final=s.player.concat(s.community),r=rankFive(final);
+    const mult=r[0]===1?(r[1]>=10?1:0):([0,0,2,3,5,8,11,50,200][r[0]]||0);
+    const gross=s.activeUnits*s.bet*(1+mult);s.finished=true;settle(s.stake,gross,"You made "+handLabel(r)+". Paytable return "+mult+":1.");
   }
   c.bind(e=>{
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
-    if(a==="deal"||a==="again"){if(s&&!s.finished)return;const bet=c.takeBet();if(!bet)return;if(!wallet.charge(bet*2)){wallet.settle(bet,0,game.name);message("You need three units for the opening ante.","loss");return;}const d=deck();s={stake:bet*3,bet,deck:d,player:[d.pop(),d.pop(),d.pop()],community:[],activeUnits:3,returnedUnits:0,finished:false};render("Three units posted. Choose whether to pull a bet or let it ride.");}
+    if(a==="deal"||a==="again"){if(s&&!s.finished)return;const bet=c.takeBet();if(!bet)return;if(!c.chargeAdditional(bet*2)){c.settle(bet,0,"You could not cover the remaining two ante units.");return;}const d=deck();s={stake:bet*3,bet,deck:d,player:[d.pop(),d.pop(),d.pop()],community:[],activeUnits:3,returnedUnits:0,finished:false};render("Three units posted. Choose whether to pull a bet or let it ride.");}
     else if(!s||s.finished)return;
-    else if(a==="pull"){if(s.community.length===0&&s.activeUnits>1){s.activeUnits--;s.returnedUnits++;s.stake-=s.bet;wallet.settle(s.bet,s.bet,game.name);}else if(s.community.length===1&&s.activeUnits>1){s.activeUnits--;s.returnedUnits++;s.stake-=s.bet;wallet.settle(s.bet,s.bet,game.name);}else message("No more bets can be pulled.");}
+    else if(a==="pull"){if(s.community.length===0&&s.activeUnits>1){s.activeUnits--;s.returnedUnits++;s.stake-=s.bet;c.refund(s.bet);}else if(s.community.length===1&&s.activeUnits>1){s.activeUnits--;s.returnedUnits++;s.stake-=s.bet;c.refund(s.bet);}else message("No more bets can be pulled.");}
     else if(a==="ride"){s.community.push(s.deck.pop());if(s.community.length>=2)finish();else render("Community card revealed. Final decision.");}
   });
   render("Three equal units are required.");return c;
@@ -171,7 +193,11 @@ function mountLetItRide(game,root,wallet){
 
 function mountPaiGow(game,root,wallet){
   const c=makeGame(game,root,wallet);let s=null;
-  function splitRank(cards){return cards.length===5?rankFive(cards):cards.length===2?([0,...cards.map(value).sort((a,b)=>b-a)]):[0];}
+  function splitRank(cards){
+    if(cards.length===5)return rankFive(cards);
+    const vals=cards.map(value).sort((a,b)=>b-a);
+    return vals[0]===vals[1]?[1,vals[0]]:[0,...vals];
+  }
   function bestHouse(cards){
     let best=null;
     for(const high of combos(cards,5)){
@@ -196,7 +222,7 @@ function mountPaiGow(game,root,wallet){
       const high=s.selected.map(i=>s.player[i]),low=s.player.filter((x,i)=>!s.selected.includes(i)),my={high,low,hr:rankFive(high),lr:splitRank(low)},bot=bestHouse(s.deck.splice(0,7));
       // House-way chooses the strongest five-card hand, then the strongest two-card remainder.
       const highResult=cmp(my.hr,bot.hr),lowResult=cmp(my.lr,bot.lr);s.result={my,bot};s.done=true;
-      if(highResult>0&&lowResult>0)settle(bet=s.bet,s.bet*2,"You win both hands. High: "+handLabel(my.hr)+". Low: "+my.lr.join("-")+".");
+      if(highResult>0&&lowResult>0)settle(s.bet,s.bet*2,"You win both hands. High: "+handLabel(my.hr)+". Low: "+my.lr.join("-")+".");
       else if(highResult<0&&lowResult<0)settle(s.bet,0,"House wins both hands.");
       else settle(s.bet,s.bet,"Pai Gow push: the hands split.");
     }
