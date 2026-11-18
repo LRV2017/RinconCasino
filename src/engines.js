@@ -143,7 +143,7 @@ function mountBlackjack(game,root,wallet){
       if(s.player.length!==2)return;if(!wallet.charge(s.bet)){c.status("Not enough credits to double.","loss");return;}s.bet*=2;s.player.push(s.deck.pop());if(total(s.player)>21)finish("loss","Double down busts at "+total(s.player)+".",0);else dealerPlay();
     }
   }
-  const off=c.bind(click);render();return {close:()=>{},destroy:off};
+  const off=c.bind(click);render();return {close:()=>{if(s&&!s.finished)wallet.settle(s.bet,0,game.name);},destroy:off};
 }
 function mountBaccarat(game,root,wallet){
   const c=common(game,root,wallet);let pick="banker",last=null;
@@ -193,7 +193,7 @@ function mountVideoPoker(game,root,wallet){
       c.settle(s.bet,gross,s.message);render();
     }
   });
-  render();return {close:()=>{},destroy:off};
+  render();return {close:()=>{if(s&&s.phase==="draw")wallet.settle(s.bet,0,game.name);},destroy:off};
 }
 function mountSlots(game,root,wallet){
   const c=common(game,root,wallet);let result=null;
@@ -249,63 +249,42 @@ function mountDice(game,root,wallet){
     } else if(mode==="yahtzee"){
       body+='<div class="tiny-note">UP TO THREE ROLLS · TAP DICE TO HOLD THEM · SCORE THE BEST COMBINATION</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">⚀⚁⚂⚃⚄⚅'.charAt(d-1)+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div><div class="action-row"><button class="game-action primary" data-act="roll" '+(s&&s.rolls>=3?"disabled":"")+'>'+(s?"Roll "+(3-s.rolls)+" remaining":"Start roll")+'</button><button class="game-action secondary" data-act="score" '+(!s||!s.rolls?"disabled":"")+'>Score hand</button></div>';
     } else if(mode==="farkle"){
-      body+='<div class="tiny-note">FARKLE · SELECT SCORING DICE, BANK OR ROLL THE REMAINING DICE</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.selected.includes(i)?"held":"")+'" data-die="'+i+'">⚀⚁⚂⚃⚄⚅'.charAt(d-1)+'</button>').join(""):'<div class="die">⚄</div>'.repeat(6))+'</div><div class="score-card"><strong>'+(s?s.points:0)+'</strong><span>BANKED TURN POINTS</span></div><div class="action-row"><button class="game-action primary" data-act="roll" '+(s&&s.dice.length===0?"disabled":"")+'>'+(s?"Roll remaining dice":"Start Farkle")+'</button><button class="game-action secondary" data-act="keep" '+(!s||!s.dice.length?"disabled":"")+'>Keep selected</button><button class="game-action secondary" data-act="bank" '+(!s||!s.points?"disabled":"")+'>Bank points</button></div>';
-    } else if(mode==="liars"){
-      body+='<div class="tiny-note">LIAR’S DICE · BID HOW MANY OF A FACE ARE UNDER ALL CUPS</div><div class="dice-tray">'+(s?s.mine.map((d,i)=>'<div class="die">'+d+'</div>').join(""):'<div class="die">?</div>'.repeat(5))+'</div><div class="table-seats"><div class="seat"><small>HOUSE BOT 1</small><strong>5 hidden dice</strong></div><div class="seat"><small>HOUSE BOT 2</small><strong>5 hidden dice</strong></div><div class="seat"><small>HOUSE BOT 3</small><strong>5 hidden dice</strong></div></div><div class="action-row"><label class="tiny-note">COUNT <input id="bidCount" class="bet-input" type="number" min="1" value="'+(s?s.bidCount:1)+'"></label><label class="tiny-note">FACE <select id="bidFace" class="bet-input"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>1</option></select></label><button class="game-action primary" data-act="bid">Make bid</button><button class="game-action danger" data-act="challenge" '+(!s||!s.lastBid?"disabled":"")+'>Call bluff</button></div>';
-    } else {
-      body+='<div class="table-felt"><h3>'+game.name+'</h3><p class="muted">Choose high or low, roll three dice and compare the total. A correct call returns double your stake.</p><div class="choice-row"><button class="game-action primary" data-pick="high">HIGH (11–18)</button><button class="game-action secondary" data-pick="low">LOW (3–10)</button></div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">⚀⚁⚂⚃⚄⚅'.charAt(d-1)+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div><div class="die">⚂</div>')+'</div><div class="action-row"><button class="game-action primary" data-act="roll">Roll dice</button></div></div>';
-    }
-    c.page(body,true);if(s&&s.message)c.status(s.message,s.win?"win":"loss");
-  }
-  function scoreFarkle(dice){
-    if(dice.length===6){const sorted=dice.slice().sort().join("");if(sorted==="123456")return 1500;const counts={};dice.forEach(d=>counts[d]=(counts[d]||0)+1);if(Object.values(counts).filter(n=>n===2).length===3)return 1500;}
-    const counts={};dice.forEach(d=>counts[d]=(counts[d]||0)+1);
-    for(let n=6;n>=3;n--){for(let f=1;f<=6;f++)if(counts[f]>=n){const base=f===1?1000:f*100;return base*Math.pow(2,n-3);}}
-    return dice.reduce((a,d)=>a+(d===1?100:d===5?50:0),0);
-  }
-  function finishDice(bet,payout,message){s.message=message;s.win=payout>bet;c.settle(bet,payout,message);render();}
-  const off=c.bind(e=>{
-    const b=e.target.closest("[data-act],[data-pick],[data-die]");if(!b)return;
-    if(b.dataset.pick){if(!s)s={pick:b.dataset.pick};else s.pick=b.dataset.pick;render();return;}
-    if(mode==="craps"&&b.dataset.act==="roll"){
-      if(!s){const bet=c.charge();if(bet===null)return;s={bet,point:0,dice:[],message:"Come-out roll."};}
-      s.dice=roll(2);const sum=s.dice[0]+s.dice[1];
-      if(!s.point){if(sum===7||sum===11){finishDice(s.bet,s.bet*2,"Natural "+sum+"! Pass line wins.");return;}if(sum===2||sum===3||sum===12){finishDice(s.bet,0,"Craps "+sum+". Pass line loses.");return;}s.point=sum;s.message="Point is "+sum+". Roll it again before a 7.";}
-      else if(sum===s.point){finishDice(s.bet,s.bet*2,"You made your point "+sum+" before a 7.");return;}
-      else if(sum===7){finishDice(s.bet,0,"Seven-out. The pass line loses.");return;}
-      else s.message="Rolled "+sum+". Point remains "+s.point+".";
-      render();
-    } else if(mode==="sicbo"&&b.dataset.act==="roll"){
-      const bet=c.charge();if(bet===null)return;const pick=s?s.pick||"big":"big",dice=roll(3),sum=dice.reduce((a,x)=>a+x,0),triple=dice.every(x=>x===dice[0]);let win=false,mult=0;
-      if(pick==="triple"){win=triple;mult=31;}else if(pick==="big"){win=sum>=11&&!triple;mult=2;}else if(pick==="small"){win=sum<=10&&!triple;mult=2;}else if(pick==="odd"){win=sum%2===1&&!triple;mult=2;}else if(pick==="even"){win=sum%2===0&&!triple;mult=2;}
-      s={...s,dice,pick,message:"Dice "+dice.join(" · ")+" total "+sum+". "+(win?"Winning "+pick+" bet.":"No hit.") ,win};finishDice(bet,win?bet*mult:0,s.message);
-    } else if(mode==="yahtzee"){
       if(b.dataset.act==="roll"){
-        if(!s){const bet=c.charge();if(bet===null)return;s={bet,dice:roll(5),holds:[],rolls:1,message:"Tap dice to hold, then roll again."};}
-        else if(s.rolls<3){s.dice=s.dice.map((d,i)=>s.holds.includes(i)?d:roll(1)[0]);s.rolls++;s.message="Roll "+s.rolls+" of 3. Hold dice or score.";}
-      } else if(b.dataset.die!==undefined&&s){const i=Number(b.dataset.die);s.holds=s.holds.includes(i)?s.holds.filter(x=>x!==i):s.holds.concat([i]);}
-      else if(b.dataset.act==="score"&&s){const counts={};s.dice.forEach(d=>counts[d]=(counts[d]||0)+1);const nums=Object.values(counts).sort((a,b)=>b-a);let points= s.dice.reduce((a,d)=>a+d,0),mult=.5,label="Chance";if(nums[0]===5){points=50;mult=12;label="Yahtzee";}else if(nums[0]===4){points=25;mult=5;label="Four of a kind";}else if(nums[0]===3&&nums[1]===2){points=25;mult=4;label="Full house";}else if(s.dice.slice().sort().join("")==="12345"||s.dice.slice().sort().join("")==="23456"){points=30;mult=6;label="Straight";}else if(nums[0]===3){mult=2;label="Three of a kind";}const bet=s.bet;finishDice(bet,Math.floor(bet*mult),label+" — "+points+" points.");return;}
-      render();
-    } else if(mode==="farkle"){
-      if(b.dataset.act==="roll"){
-        if(!s){const bet=c.charge();if(bet===null)return;s={bet,dice:roll(6),selected:[],points:0,remaining:6};}
-        else {const chosen=s.selected.map(i=>s.dice[i]);const score=scoreFarkle(chosen);if(score===0){finishDice(s.bet,0,"Farkle! The selected dice had no scoring combination.");return;}s.points+=score;s.remaining-=chosen.length;if(s.remaining===0)s.remaining=6;s.dice=roll(s.remaining);s.selected=[];s.message="Banked "+score+" points this step. Choose dice or bank.";}
-      } else if(b.dataset.die!==undefined&&s){const i=Number(b.dataset.die);s.selected=s.selected.includes(i)?s.selected.filter(x=>x!==i):s.selected.concat([i]);}
-      else if(b.dataset.act==="keep"&&s){const chosen=s.selected.map(i=>s.dice[i]),score=scoreFarkle(chosen);if(!score){c.status("Select scoring dice before keeping them.","loss");return;}s.points+=score;s.remaining-=chosen.length;if(s.remaining===0)s.remaining=6;s.dice=roll(s.remaining);s.selected=[];s.message="Scored "+score+". You have "+s.points+" turn points.";}
-      else if(b.dataset.act==="bank"&&s){const payout=s.bet*Math.min(6,Math.max(0,s.points/400));finishDice(s.bet,Math.floor(payout),"Banked "+s.points+" points.");return;}
+        if(!s||s.done){const bet=c.charge();if(bet===null)return;s={bet,dice:roll(6),selected:[],points:0,remaining:6,phase:"select"};if(scoreFarkle(s.dice)===0){finishDice(bet,0,"Farkle! None of the six dice scored.");return;}s.message="Select scoring dice, then keep them or bank your points.";}
+        else if(s.phase==="ready"){s.dice=roll(s.remaining);s.selected=[];s.phase="select";if(scoreFarkle(s.dice)===0){finishDice(s.bet,0,"Farkle! No scoring dice on the reroll.");return;}s.message="Reroll complete. Select scoring dice.";}
+        else {c.status("Choose and keep scoring dice before rolling again.","loss");return;}
+      } else if(b.dataset.die!==undefined&&s&&!s.done&&s.phase==="select"){
+        const i=Number(b.dataset.die);s.selected=s.selected.includes(i)?s.selected.filter(x=>x!==i):s.selected.concat([i]);
+      } else if(b.dataset.act==="keep"&&s&&!s.done&&s.phase==="select"){
+        const chosen=s.selected.map(i=>s.dice[i]),score=scoreFarkle(chosen);
+        if(score===0){c.status("Those dice do not form a scoring combination.","loss");return;}
+        s.points+=score;s.remaining-=chosen.length;if(s.remaining<=0)s.remaining=6;
+        s.dice=[];s.selected=[];s.phase="ready";s.message="Scored "+score+" points. Roll the remaining dice or bank your turn.";
+      } else if(b.dataset.act==="bank"&&s&&!s.done&&s.points>0){
+        const payout=Math.floor(s.bet*Math.min(8,Math.max(0,s.points/250)));
+        finishDice(s.bet,payout,"Banked "+s.points+" points. Gross payout "+payout+" credits.");return;
+      }
       render();
     } else if(mode==="liars"){
       if(b.dataset.act==="bid"){
-        if(!s){const bet=c.charge();if(bet===null)return;s={bet,mine:roll(5),bots:[roll(5),roll(5),roll(5)],bidCount:1,lastBid:null,turn:0};}
+        if(!s||s.done){const bet=c.charge();if(bet===null)return;s={bet,mine:roll(5),bots:[roll(5),roll(5),roll(5)],lastBid:null,done:false};}
         const count=Math.max(1,Math.min(20,Number(root.querySelector("#bidCount").value||1))),face=Number(root.querySelector("#bidFace").value||2);
-        if(s.lastBid&&(count<s.lastBid.count||count===s.lastBid.count&&face<=s.lastBid.face)){c.status("Your bid must increase the quantity or the face value.","loss");return;}
+        if(s.lastBid&&(count<s.lastBid.count||count===s.lastBid.count&&face<=s.lastBid.face)){c.status("Your bid must raise the quantity or the face value.","loss");return;}
+        const actual=s.mine.concat(...s.bots).filter(x=>x===face).length;
         s.lastBid={count,face,by:"you"};
-        const all=s.mine.concat(...s.bots),actual=all.filter(x=>x===face).length,wanted=count;
-        const probability=1-Math.pow(1-1/6,20);const conservative=count<=Math.ceil(20/6)+1;
-        if(actual>=wanted&&conservative){s.message="The bot accepts the bid. Exact hidden count is "+actual+". You win the challenge.";finishDice(s.bet,s.bet*2,s.message);return;}
-        if(actual<wanted||!conservative){s.message="The bot calls bluff. There are "+actual+" dice showing "+face+".";finishDice(s.bet,0,s.message);return;}
-        s.bidCount=count+1;s.message="Bot raises to "+s.bidCount+" of "+face+". Increase the bid or challenge.";render();
-      } else if(b.dataset.act==="challenge"&&s&&s.lastBid){const all=s.mine.concat(...s.bots),actual=all.filter(x=>x===s.lastBid.face).length,win=actual>=s.lastBid.count;finishDice(s.bet,win?s.bet*2:0,"There are "+actual+" matching dice. "+(win?"Your bid was right.":"The bid was too high."));return;}
+        const visible=s.bots[0].filter(x=>x===face).length,expected=visible+2.5;
+        if(count>Math.ceil(expected+1)){
+          const wins=actual>=count;
+          finishDice(s.bet,wins?s.bet*2:0,"The bot challenges. There are "+actual+" dice showing "+face+". "+(wins?"Your bid was correct.":"The bid was too high."));return;
+        }
+        const raiseCount=count+1;
+        s.lastBid={count:raiseCount,face,by:"bot"};
+        s.message="Bot raises the bid to "+raiseCount+" of "+face+". Raise again or call bluff.";
+      } else if(b.dataset.act==="challenge"&&s&&!s.done&&s.lastBid){
+        const actual=s.mine.concat(...s.bots).filter(x=>x===s.lastBid.face).length,wins=actual>=s.lastBid.count;
+        finishDice(s.bet,wins?s.bet*2:0,"There are "+actual+" dice showing "+s.lastBid.face+". "+(wins?"The bid was correct.":"The bid was a bluff."));return;
+      }
+      render();
     } else if(b.dataset.act==="roll"){
       const bet=c.charge();if(bet===null)return;const dice=roll(3),sum=dice.reduce((a,x)=>a+x,0),pick=s&&s.pick||"high",win=pick==="high"?sum>=11:sum<=10,payout=win?bet*2:0;s={dice,pick,win,message:"Rolled "+sum+". "+(win?"Your "+pick+" call wins.":"Your "+pick+" call loses.")};finishDice(bet,payout,s.message);
     }
@@ -329,9 +308,9 @@ function mountWheel(game,root,wallet){
   function endRound(bet,mult,message){const gross=Math.floor(bet*mult);if(timer){clearInterval(timer);timer=null;}s.done=true;s.message=message;s.win=gross>bet;c.settle(bet,gross,message);render();}
   const off=c.bind(e=>{
     const b=e.target.closest("[data-act],[data-pick],[data-tile]");if(!b)return;
-    if(b.dataset.pick){if(!s)s={pick:b.dataset.pick};else s.pick=b.dataset.pick;render();return;}
+    if(b.dataset.pick){if(!s)s={pick:b.dataset.pick};else{s.pick=b.dataset.pick;s.risk=b.dataset.pick;}render();return;}
     if(mode==="coin"&&b.dataset.act==="flip"){const bet=c.charge();if(bet===null)return;const face=Math.random()<.5?"heads":"tails",win=face===(s&&s.pick||"heads");s={result:face==="heads"?"🟡 HEADS":"🟡 TAILS",message:"It landed "+face+". "+(win?"You called it.":"Not this time."),win};endRound(bet,win?1.95:0,s.message);}
-    else if(mode==="plinko"&&b.dataset.act==="drop"){const bet=c.charge();if(bet===null)return;const risk=s&&s.risk||"medium",path=Array.from({length:10},()=>Math.random()<.5?"◀":"▶").join(" "),score=path.split("▶").length-1,offset=Math.abs(score-5),table=risk==="low"?[.7,.8,.9,1,1.1,1.2,1.5,2]:risk==="high"?[0,0,.1,.5,1,3,8,20]:[0,.3,.7,1,1.5,2.5,4,8],mult=table[Math.min(offset,7)];s={path,mult,message:"Chip landed after "+score+" right turns. "+mult+"× payout."};endRound(bet,mult,s.message);}
+    else if(mode==="plinko"&&b.dataset.act==="drop"){const bet=c.charge();if(bet===null)return;const risk=s&&(s.risk||s.pick)||"medium",path=Array.from({length:10},()=>Math.random()<.5?"◀":"▶").join(" "),score=path.split("▶").length-1,offset=Math.abs(score-5),table=risk==="low"?[.7,.8,.9,1,1.1,1.2,1.5,2]:risk==="high"?[0,0,.1,.5,1,3,8,20]:[0,.3,.7,1,1.5,2.5,4,8],mult=table[Math.min(offset,7)];s={path,mult,message:"Chip landed after "+score+" right turns. "+mult+"× payout."};endRound(bet,mult,s.message);}
     else if(mode==="limbo"&&b.dataset.act==="limbo"){const bet=c.charge();if(bet===null)return;const target=Math.max(1.01,Math.min(50,Number(root.querySelector("#target").value||2))),roll=Math.max(1,Math.min(50,1/Math.max(.02,Math.random()))),win=roll>=target,mult=win?target*.97:0;s={result:roll,message:"Multiplier was "+roll.toFixed(2)+"×. "+(win?"Target cleared.":"Target missed."),win};endRound(bet,mult,s.message);}
     else if(mode==="crash"&&b.dataset.act==="crash"){
       if(!s||!s.running){const bet=c.charge();if(bet===null)return;const crash=Math.max(1.01,Math.min(20,Math.exp(Math.random()*2.2)));s={bet,crash,mult:1,running:true,done:false,message:"Multiplier is climbing."};render();timer=setInterval(()=>{if(!s||!s.running){clearInterval(timer);timer=null;return;}s.mult*=1.035;if(s.mult>=s.crash){s.running=false;endRound(s.bet,0,"Crashed at "+s.crash.toFixed(2)+"×. Your stake is lost.");}else{const el=root.querySelector(".big-number");if(el)el.textContent=s.mult.toFixed(2)+"×";}},120);}
