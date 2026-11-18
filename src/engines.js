@@ -1,6 +1,7 @@
 import { mountPoker } from "./poker.js";
 import { mountBoard } from "./board.js";
 import { mountExtraGame } from "./extra-games.js";
+import { mountArena3D } from "./arena3d.js";
 
 function cardDeck(decks) {
   const suits=["♠","♥","♦","♣"],ranks=["A","2","3","4","5","6","7","8","9","10","J","Q","K"],out=[];
@@ -299,7 +300,8 @@ function mountKeno(game,root,wallet){
 }
 function mountDice(game,root,wallet){
   const c=common(game,root,wallet),mode=game.mode;
-  let s=null;
+  let s=null,arena=null;
+  const arenaModes=new Set(["liars","ceelo","bunco","ship","pig","dice-poker"]);
   const faces=["","⚀","⚁","⚂","⚃","⚄","⚅"];
   const roll=n=>Array.from({length:n},()=>1+Math.floor(Math.random()*6));
   const sum=a=>a.reduce((x,y)=>x+y,0);
@@ -396,7 +398,7 @@ function mountDice(game,root,wallet){
     return 0;
   }
   function render(){
-    let body='<div class="tiny-note">'+game.name.toUpperCase()+' · HOUSE DICE TABLE</div>';
+    let body='<div class="tiny-note">'+game.name.toUpperCase()+' · LOCAL BOT TABLE</div>'+(arenaModes.has(mode)?'<section class="arena3d-stage" aria-label="Interactive 3D multiplayer dice table"></section>':"");
     if(mode==="craps"){
       body+='<div class="table-felt"><h3>Pass Line</h3><p class="muted">7 or 11 wins on the come-out roll. 2, 3 or 12 loses. Any other total becomes your point; hit it before a 7.</p><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div>')+'</div><div class="tiny-note">'+(s&&s.point?"POINT: "+s.point:"COME-OUT ROLL")+'</div><div class="action-row"><button class="game-action primary" data-act="craps">'+(s&&!s.done?"Roll again":"Play pass line")+'</button></div></div>';
     } else if(mode==="sicbo"){
@@ -422,6 +424,24 @@ function mountDice(game,root,wallet){
     }
     c.page(body,true);
     if(s&&s.message)c.status(s.message,s.win?"win":s.done?"loss":"");
+    if(arenaModes.has(mode)){
+      let players=[];
+      if(mode==="liars"){
+        players=[{name:"You",human:true,dice:s?s.mine:[],status:s&&s.lastBid?"BIDDING":"ROLL READY"},...botNames.slice(0,3).map(name=>({name,hiddenDice:5,status:s?"THINKING":"READY"}))];
+      }else if(mode==="ceelo"){
+        players=[{name:"You",human:true,dice:s?s.you:[],status:s?"ROLLED":"READY"},...(s?s.bots:botNames.slice(0,3).map(name=>({name,dice:[]}))).map(o=>({name:o.name,dice:o.dice||[],score:o.rank===undefined?undefined:o.rank.toFixed(2),status:s?"SHOWDOWN":"READY"}))];
+      }else if(mode==="bunco"){
+        players=[{name:"You",human:true,dice:s?s.dice:[],score:s?s.scores[0]:0},...botNames.slice(0,3).map((name,i)=>({name,dice:s&&s.botDice?s.botDice[i]:[],score:s?s.scores[i+1]:0,status:s?"ROUND "+s.turn:"READY"}))];
+      }else if(mode==="ship"){
+        players=[{name:"You",human:true,dice:s?s.dice:[],score:s&&s.cargo!==undefined?s.cargo:undefined},...botNames.slice(0,3).map(name=>{const o=s&&s.opponents&&s.opponents.find(x=>x.name===name);return {name,dice:o&&o.dice?o.dice:[],score:o&&o.cargo!==undefined?o.cargo:undefined,status:o?"CARGO":"THINKING"};})];
+      }else if(mode==="pig"){
+        players=[{name:"You",human:true,dice:s&&s.die?[s.die]:[],score:s?s.youTotal+(s.turnScore||0):0},...botNames.slice(0,3).map((name,i)=>({name,score:s?s.botTotals[i]:0,status:"RACE TO 100"}))];
+      }else if(mode==="dice-poker"){
+        players=[{name:"You",human:true,dice:s?s.dice:[],status:s?"YOUR ROLL":"READY"},...botNames.map(name=>{const o=s&&s.opponents&&s.opponents.find(x=>x.name===name);return {name,dice:o?o.dice:[],hiddenDice:s&&!o?5:0,status:o?"SHOWDOWN":"THINKING"};})];
+      }
+      const sceneConfig={kind:"dice",title:game.name,players,centerDice:mode==="liars"?[]:mode==="dice-poker"?(s&&s.dice||[]):mode==="ceelo"?(s&&s.you||[]):mode==="bunco"?(s&&s.dice||[]):[],centerText:mode==="liars"?(s&&s.lastBid?"BID · "+s.lastBid.count+" OF "+s.lastBid.face:"HIDDEN DICE"):mode==="pig"?"RACE TO 100":mode==="bunco"?"ROUND "+(s?s.turn:0)+" / 6":mode==="ship"?"SHIP · CAPTAIN · CREW":"DICE SHOWDOWN"};
+      if(!arena)arena=mountArena3D(root,sceneConfig);else arena.update(sceneConfig);
+    }
   }
   function action(e){
     const b=e.target.closest("[data-act],[data-pick],[data-die],[data-tile]");if(!b)return;
@@ -602,7 +622,7 @@ function mountDice(game,root,wallet){
     }
   }
   const off=c.bind(action);render();
-  return {close:()=>{if(s&&!s.done&&s.bet)wallet.settle(s.bet,0,game.name);},destroy:off};
+  return {close:()=>{if(s&&!s.done&&s.bet)wallet.settle(s.bet,0,game.name);arena?.destroy();},destroy:()=>{off();arena?.destroy();}};
 }
 function mountWheel(game,root,wallet){
   const c=common(game,root,wallet),mode=game.mode;let s=null,timer=null;
