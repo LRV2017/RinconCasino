@@ -183,6 +183,32 @@ export function mountArena3D(root,initialConfig={}){
     }
     const players=(config.players&&config.players.length?config.players:([{name:"You",human:true},...["Rico","Maya","Ace","Nova"].map(name=>({name}))]));
     players.forEach((player,index)=>addAvatar(player,index,players.length));
+    if(config.chamber){
+      const device=new THREE.Mesh(new THREE.CylinderGeometry(1.42,1.55,.34,48),new THREE.MeshStandardMaterial({color:0x3d4140,metalness:.78,roughness:.29}));
+      device.position.set(0,1.19,0);device.castShadow=true;world.add(device);
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(1.42,.075,10,64),new THREE.MeshStandardMaterial({color:0xb89a5b,metalness:.82,roughness:.22}));
+      ring.rotation.x=Math.PI/2;ring.position.y=1.39;world.add(ring);
+      const drum=new THREE.Mesh(new THREE.CylinderGeometry(.48,.5,.22,40),new THREE.MeshStandardMaterial({color:0x777b75,metalness:.85,roughness:.22}));
+      drum.position.set(0,1.43,0);world.add(drum);
+      for(let slot=0;slot<6;slot++){
+        const angle=slot*Math.PI/3-Math.PI/2;
+        const x=Math.cos(angle)*.91,z=Math.sin(angle)*.91;
+        const state=config.chamber.display?.[slot]||"UNKNOWN";
+        const color=state==="LIVE"?0xb94b41:state==="BLANK"?0x7d9d72:state==="SPENT"?0x272e2c:0x4d5550;
+        const socket=new THREE.Mesh(new THREE.CylinderGeometry(.29,.31,.16,28),new THREE.MeshStandardMaterial({color,metalness:.58,roughness:.32,emissive:state==="LIVE"?0x6d130b:state==="BLANK"?0x17391e:0x000000,emissiveIntensity:.4}));
+        socket.position.set(x,1.44,z);socket.castShadow=true;world.add(socket);
+        const center=new THREE.Mesh(new THREE.SphereGeometry(.085,12,10),new THREE.MeshStandardMaterial({color:state==="LIVE"?0xff786c:state==="BLANK"?0xb4d9a4:0x9da59a,metalness:.2,roughness:.35}));
+        center.position.set(x,1.54,z);world.add(center);
+        const number=createLabel(state==="UNKNOWN"?"?":state==="SPENT"?"×":String(slot+1),.47,.3);
+        number.position.set(x,1.79,z);world.add(number);
+        if(slot===config.chamber.current){
+          const pointer=new THREE.Mesh(new THREE.ConeGeometry(.16,.38,3),new THREE.MeshStandardMaterial({color:0xf0d78c,metalness:.4,roughness:.3,emissive:0x5c451a,emissiveIntensity:.6}));
+          pointer.position.set(x*1.3,1.72,z*1.3);pointer.rotation.x=Math.PI;pointer.rotation.z=-angle;world.add(pointer);
+        }
+      }
+      const top=createLabel(config.chamber.liveCount===1?"1 LOADED · 5 BLANK":"2 CHARGED · 4 BLANK",3.0,.42);
+      top.position.set(0,2.4,-.12);world.add(top);
+    }
     addBoardObjects();
     if(config.kind==="poker"){
       const board=config.board||[];
