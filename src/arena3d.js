@@ -177,7 +177,7 @@ export function mountArena3D(root,initialConfig={}){
     floor.rotation.x=-Math.PI/2;floor.position.y=-.15;floor.receiveShadow=true;world.add(floor);
     const base=new THREE.Mesh(new THREE.CylinderGeometry(6.1,6.1,.62,72),new THREE.MeshStandardMaterial({color:0x3e2d1e,roughness:.65,metalness:.12}));
     base.scale.z=.72;base.position.y=.56;base.castShadow=true;base.receiveShadow=true;world.add(base);
-    const felt=new THREE.Mesh(new THREE.CylinderGeometry(5.92,5.92,.16,72),new THREE.MeshStandardMaterial({color:config.kind==="dice"?0x283f57:0x164b37,roughness:.92}));
+    const felt=new THREE.Mesh(new THREE.CylinderGeometry(5.92,5.92,.16,72),new THREE.MeshStandardMaterial({color:config.chamber?0x382630:config.kind==="dice"?0x283f57:0x164b37,roughness:.92}));
     felt.scale.z=.72;felt.position.y=.93;felt.receiveShadow=true;world.add(felt);
     const rim=new THREE.Mesh(new THREE.TorusGeometry(5.95,.11,12,80),new THREE.MeshStandardMaterial({color:0xb08d54,metalness:.55,roughness:.35}));
     rim.rotation.x=Math.PI/2;rim.scale.set(1,.72,1);rim.position.y=1.02;world.add(rim);
