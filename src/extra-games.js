@@ -532,7 +532,7 @@ function mountChamberGame(game,root,wallet,devilsMode=false){
   function sceneConfig(){
     const roster=s?s.players:makePlayers();
     return {
-      kind:"dice",title:game.name,players:roster.map((p,i)=>({name:p.name,human:!!p.human,score:p.hp,status:!p.alive?"OUT":s&&i===s.turn?"YOUR TURN":p.shield?"WARD READY":p.stun?"STUNNED":"IN THE GAME"})),
+      kind:"dice",title:game.name,players:roster.map((p,i)=>({name:p.name,human:!!p.human,score:p.hp,active:!!s&&!s.done&&i===s.turn,status:!p.alive?"OUT":s&&i===s.turn?"YOUR TURN":p.shield?"WARD READY":p.stun?"STUNNED":"IN THE GAME"})),
       centerText:devilsMode?"DEMON'S DEAL":"RUSSIAN ROULETTE",
       chamber:{current:s?s.index:0,display:s?chamberInfo():Array(6).fill("UNKNOWN"),liveCount},
       pieces:devilsMode&&s?[
