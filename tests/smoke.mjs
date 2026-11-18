@@ -85,9 +85,7 @@ function exercise(game,root){
       "mastermind":[{act:"start"},{slot:"0"},{act:"guess"}],
       "memory-match":[{act:"start"},{card:"0"},{card:"1"}],
       "minesweeper":[{act:"start"},{cell:"0"}],
-      "klondike":[{act:"start"},{act:"stock"},{card:"waste"},{act:"to-foundation"}],
-      "russian-roulette":[{act:"start"},{act:"pull"}],
-      "devils-chamber":[{act:"start"},{act:"scan"},{act:"ward"},{act:"pull"}]
+      "klondike":[{act:"start"},{act:"stock"},{card:"waste"},{act:"to-foundation"}]
     };
     const steps=actions[game.mode];assert.ok(steps,game.name+" must have a dedicated extra-game controller");
     for(const step of steps)root.click(step);
@@ -110,7 +108,7 @@ for(const game of gameCatalog){
       "Ship, Captain, Crew":["FOUR-PLAYER SHOWDOWN"],
       "Dice Poker":["FOUR LOCAL OPPONENTS"],
       "Russian Roulette":["Rico","Maya","Ace"],
-      "Devil’s Chamber":["Rico","Maya","Ace"]
+      "Demon's Deal":["Rico","Maya","Ace"]
     };
     for(const marker of botChecks[game.name]||[])assert.ok(root.innerHTML.includes(marker),game.name+" should show its expanded local opponents");
     session.close();session.destroy();
