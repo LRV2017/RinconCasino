@@ -97,6 +97,16 @@ for(const game of gameCatalog){
     assert.equal(typeof session.close,"function",game.name+" should expose close()");
     assert.equal(typeof session.destroy,"function",game.name+" should expose destroy()");
     exercise(game,root);
+    const botChecks={
+      "Texas Hold'em":["Rico","Maya","Ace","Nova","Jax"],
+      "Pot-Limit Omaha":["Rico","Maya","Ace","Nova","Jax"],
+      "Cee-lo":["Rico","Maya","Ace"],
+      "Bunco":["Rico","Maya","Ace"],
+      "Pig":["Rico","Maya","Ace"],
+      "Ship, Captain, Crew":["FOUR-PLAYER SHOWDOWN"],
+      "Dice Poker":["FOUR LOCAL OPPONENTS"]
+    };
+    for(const marker of botChecks[game.name]||[])assert.ok(root.innerHTML.includes(marker),game.name+" should show its expanded local opponents");
     session.close();session.destroy();
   }catch(error){
     throw new Error("Gameplay smoke test failed for "+game.name+" ("+game.engine+"/"+game.mode+"): "+error.message,{cause:error});
