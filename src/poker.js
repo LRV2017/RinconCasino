@@ -52,10 +52,10 @@ function bestOmaha(hole,board) {
 function rankName(rank) {
   return ["High card","One pair","Two pair","Three of a kind","Straight","Flush","Full house","Four of a kind","Straight flush"][rank[0]]||"High card";
 }
-function cardText(card) { return (card.rank==="T"?"10":card.rank)+card.suit; }
 function cardMarkup(card,back) {
   if(back)return '<div class="playing-card back">◆</div>';
-  return '<div class="playing-card '+("♥♦".includes(card.suit)?"red":"")+'"><span>'+ (card.rank==="T"?"10":card.rank) +'</span><span class="suit">'+card.suit+'</span><span style="align-self:flex-end;transform:rotate(180deg)">'+(card.rank==="T"?"10":card.rank)+'</span></div>';
+  const value=card.rank==="T"?"10":card.rank;
+  return '<div class="playing-card '+("♥♦".includes(card.suit)?"red":"")+'"><span>'+value+'</span><span class="suit">'+card.suit+'</span><span style="align-self:flex-end;transform:rotate(180deg)">'+value+'</span></div>';
 }
 function preflopStrength(hole) {
   const a=RANKS.indexOf(hole[0].rank)+2,b=RANKS.indexOf(hole[1].rank)+2;
@@ -68,153 +68,291 @@ function preflopStrength(hole) {
   return Math.min(.94,s);
 }
 function estimateStrength(hole,board,isOmaha) {
-  if(board.length<3)return preflopStrength(hole);
+  if(board.length<3){
+    if(!isOmaha)return preflopStrength(hole);
+    let best=0;
+    for(let a=0;a<hole.length-1;a++)for(let b=a+1;b<hole.length;b++)best=Math.max(best,preflopStrength([hole[a],hole[b]]));
+    return Math.max(.12,best-.08);
+  }
   const rank=isOmaha?bestOmaha(hole,board):bestHoldem(hole.concat(board));
   const category=rank[0];
   const base=[.16,.34,.53,.67,.78,.84,.91,.96,.99][category]||.2;
   const high=(rank[1]||7)/140;
   return Math.min(.99,base+high);
 }
+const BOT_PROFILES=[
+  {name:"Rico",style:"TIGHT",loose:.02,aggression:.22,skill:.03},
+  {name:"Maya",style:"BALANCED",loose:.09,aggression:.42,skill:.06},
+  {name:"Ace",style:"AGGRESSIVE",loose:.16,aggression:.72,skill:.08},
+  {name:"Nova",style:"TRICKY",loose:.11,aggression:.56,skill:.12}
+];
 export function mountPoker(game,root,wallet) {
   const isOmaha=game.name.toLowerCase().includes("omaha");
-  const state={buyIn:0,stack:0,botStack:0,pot:0,deck:[],you:[],bot:[],board:[],street:0,stage:"idle",currentBet:0,youCommitted:0,botCommitted:0,last:"Buy in to join the table.",net:0,cashed:false};
+  const state={
+    buyIn:0,button:-1,seats:[],board:[],deck:[],street:0,stage:"idle",
+    currentBet:0,minRaise:10,currentSeat:-1,pot:0,showCards:false,
+    last:"Buy in to join the table.",cashed:false,net:0
+  };
   let status="";
+  const you=()=>state.seats[0];
+  const live=()=>state.seats.filter(s=>!s.folded);
+  const active=()=>state.seats.filter(s=>!s.folded&&!s.allIn);
+  const potTotal=()=>state.seats.reduce((sum,s)=>sum+s.totalCommitted,0);
   const result=(message,type)=>{
     status=message;
     const el=root.querySelector("#pokerResult");
     if(el){el.textContent=message;el.className="result-banner"+(type?" "+type:"");}
   };
-  const handRank=(hole,board)=>isOmaha?bestOmaha(hole,board):bestHoldem(hole.concat(board));
-  const render=()=>{
+  const handRank=(seat)=>isOmaha?bestOmaha(seat.hole,state.board):bestHoldem(seat.hole.concat(state.board));
+  function makeSeats(){
+    return [{id:"you",name:"YOU",isYou:true,style:"PLAYER",stack:1000},
+      ...BOT_PROFILES.map((p,i)=>({id:"bot"+i,name:p.name,isYou:false,style:p.style,loose:p.loose,aggression:p.aggression,skill:p.skill,stack:1000}))];
+  }
+  function pay(seat,amount){
+    const paid=Math.min(Math.max(0,amount),seat.stack);
+    seat.stack-=paid;seat.streetCommitted+=paid;seat.totalCommitted+=paid;
+    if(seat.stack===0)seat.allIn=true;
+    return paid;
+  }
+  function seatCards(seat){
+    if(!seat.hole.length)return "";
+    return '<div class="playing-cards">'+seat.hole.map(c=>cardMarkup(c,!state.showCards&&!seat.isYou)).join("")+'</div>';
+  }
+  function render(){
     const streetNames=["Pre-flop","Flop","Turn","River","Hand complete"];
-    const playerCards=state.you.map(c=>cardMarkup(c,false)).join("");
-    const botCards=state.stage==="showdown"?state.bot.map(c=>cardMarkup(c,false)).join(""):state.bot.map(c=>cardMarkup(c,true)).join("");
+    const isYourTurn=state.stage==="action"&&state.currentSeat===0;
+    const player=you();
+    const seats=state.seats.map((seat,i)=>{
+      const current=state.stage==="action"&&state.currentSeat===i;
+      const statusText=seat.folded?"FOLDED":seat.allIn?"ALL IN":current?"ACTING":seat.acted?"WAITING":"IN HAND";
+      const details=state.stage==="idle"?"":'<div class="tiny-note">'+statusText+' · '+seat.totalCommitted+' IN POT'+(seat.streetCommitted?' · '+seat.streetCommitted+' THIS STREET':'')+'</div>';
+      const cards=seat.isYou||state.showCards?seatCards(seat):seat.hole.length?'<div class="playing-cards">'+seat.hole.map(()=>cardMarkup(null,true)).join("")+'</div>':"";
+      return '<div class="seat poker-seat '+(current?"active-seat ":"")+(seat.folded?"folded-seat":"")+'"><div class="aside-line"><small>'+(seat.isYou?"YOU":seat.name+" · "+seat.style)+'</small><small>'+(i===state.button?"DEALER BUTTON":"SEAT "+(i+1))+'</small></div><strong>'+seat.stack+' CHIPS</strong>'+details+cards+'</div>';
+    }).join("");
     const boardCards=state.board.map(c=>cardMarkup(c,false)).join("");
-    const active=state.stage==="action";
+    const actionAllowed=isYourTurn&&!player.folded&&!player.allIn;
+    const due=Math.max(0,state.currentBet-player.streetCommitted);
+    const defaultRaise=Math.max(state.currentBet+state.minRaise,state.currentBet+20);
     root.innerHTML=
-      '<div class="game-intro"><div class="game-icon-large">♠</div><h3>'+game.name+'</h3><p>'+(isOmaha?"Pot-Limit Omaha rules: each player receives four hole cards and must use exactly two of them with three community cards.":"Texas Hold’em: two private cards, five community cards, four betting streets and a local CPU opponent.")+' Your opponent considers hand strength, board texture and pot odds. This table is local-only; online rooms are a future update.</p></div>'+
+      '<div class="game-intro"><div class="game-icon-large">♠</div><h3>'+game.name+'</h3><p>'+(isOmaha?"Six-seat Pot-Limit Omaha. Each player receives four private cards and must use exactly two with three community cards.":"Six-seat No-Limit Texas Hold’em with four distinct local opponents, rotating blinds, multiway betting and side pots.")+' Bots have different risk profiles and consider hand strength, opponents and pot odds. All opponents are local CPU players; online rooms are a future update.</p></div>'+
       '<div class="bet-controls"><label for="stake">BUY-IN</label><input class="bet-input" id="stake" type="number" min="10" step="10" value="100"><span class="tiny-note">Current credits: '+Math.floor(wallet.balance).toLocaleString()+'</span>'+
       (state.stage==="idle"?'<button class="game-action primary" data-act="buy">Join table</button>':'')+
-      (state.stage==="over"||state.stage==="showdown"?'<button class="game-action primary" data-act="next">Next hand</button>':'')+
+      ((state.stage==="showdown"||state.stage==="over")&&!state.cashed?'<button class="game-action primary" data-act="next">Next hand</button>':'')+
       (state.buyIn&&!state.cashed?'<button class="game-action secondary" data-act="cashout">Cash out</button>':'')+
       '</div>'+
-      '<div class="table-felt"><div class="table-seats"><div class="seat"><small>HOUSE BOT · '+(state.botStack||0)+' CHIPS</small><strong>'+(state.stage==="showdown"?"SHOWDOWN":"THINKING")+'</strong></div><div class="seat"><small>POT</small><strong>'+state.pot+' CHIPS</strong></div><div class="seat"><small>YOU · '+state.stack+' CHIPS</small><strong>'+(state.stage==="action"?"YOUR TURN":streetNames[state.street]||"WAITING")+'</strong></div></div>'+
-      '<div class="playing-cards">'+botCards+'</div><div class="tiny-note">COMMUNITY CARDS</div><div class="playing-cards">'+(boardCards||'<span class="muted">The flop has not been dealt.</span>')+'</div>'+
-      '<div class="tiny-note">YOUR HOLE CARDS</div><div class="playing-cards">'+playerCards+'</div>'+
-      '<div class="tiny-note">'+(state.buyIn?"TABLE STACK IS HELD IN YOUR SESSION · CHIPS CONVERT BACK TO CREDITS WHEN YOU CASH OUT":"A buy-in creates a local table stack. Leave with Cash out to convert the stack back to credits.")+'</div></div>'+
+      '<div class="table-felt"><div class="table-seats poker-seats">'+seats+'</div><div class="tiny-note">POT · '+potTotal()+' CHIPS · '+(streetNames[state.street]||"WAITING")+'</div>'+
+      '<div class="tiny-note">COMMUNITY CARDS</div><div class="playing-cards">'+(boardCards||'<span class="muted">The flop has not been dealt.</span>')+'</div>'+
+      '<div class="tiny-note">YOUR HOLE CARDS</div><div class="playing-cards">'+(player&&player.hole.length?player.hole.map(c=>cardMarkup(c,false)).join(""):"")+'</div>'+
+      '<div class="tiny-note">'+(state.buyIn?"Your stack converts back to fictional credits when you cash out":"Join with a buy-in to receive 1,000 table chips")+'</div></div>'+
       '<div class="action-row">'+
-      '<button class="game-action secondary" data-act="fold" '+(!active?"disabled":"")+'>Fold</button>'+
-      '<button class="game-action primary" data-act="call" '+(!active?"disabled":"")+'>'+(state.currentBet>state.youCommitted?"Call "+(state.currentBet-state.youCommitted):"Check")+'</button>'+
-      '<button class="game-action secondary" data-act="raise" '+(!active?"disabled":"")+'>Raise</button>'+
-      '<button class="game-action secondary" data-act="allin" '+(!active?"disabled":"")+'>All-in</button>'+
+      '<button class="game-action secondary" data-act="fold" '+(!actionAllowed?"disabled":"")+'>Fold</button>'+
+      '<button class="game-action primary" data-act="call" '+(!actionAllowed?"disabled":"")+'>'+(due>0?"Call "+Math.min(due,player?player.stack:0):"Check")+'</button>'+
+      '<label class="tiny-note">RAISE TO <input class="bet-input" id="raiseTo" type="number" min="1" value="'+defaultRaise+'" style="width:96px" '+(!actionAllowed?"disabled":"")+'></label>'+
+      '<button class="game-action secondary" data-act="raise" '+(!actionAllowed||active().length<2?"disabled":"")+'>Raise</button>'+
+      '<button class="game-action secondary" data-act="allin" '+(!actionAllowed?"disabled":"")+'>All-in</button>'+
       '</div><div id="pokerResult" class="result-banner">'+(status||state.last)+'</div>';
-  };
-  function startHand() {
-    if(state.stack<=0){state.stage="over";result("Your stack is empty. Cash out your remaining table chips.", "loss");render();return;}
-    if(state.botStack<=0)state.botStack=1000;
-    state.deck=shuffledDeck();state.you=[];state.bot=[];state.board=[];state.pot=0;state.street=0;state.stage="action";state.currentBet=10;state.youCommitted=10;state.botCommitted=5;
+  }
+  function findNextActor(){
+    for(let step=1;step<=state.seats.length;step++){
+      const i=(state.currentSeat+step+state.seats.length)%state.seats.length;
+      const seat=state.seats[i];
+      if(!seat.folded&&!seat.allIn&&(!seat.acted||seat.streetCommitted<state.currentBet))return i;
+    }
+    return -1;
+  }
+  function awardFold(){
+    const winner=live()[0],amount=potTotal();
+    if(winner)winner.stack+=amount;
+    state.pot=0;state.stage="showdown";state.showCards=false;
+    state.last=(winner&&winner.isYou?"You":" "+(winner?winner.name:"A player"))+" win "+amount+" chips. Everyone else folded.";
+    result(state.last,winner&&winner.isYou?"win":"");
+  }
+  function finishShowdown(){
+    while(state.board.length<5)state.board.push(state.deck.pop());
+    state.showCards=true;
+    const contenders=live();
+    const ranks=new Map(contenders.map(seat=>[seat.id,handRank(seat)]));
+    const levels=Array.from(new Set(state.seats.map(s=>s.totalCommitted).filter(n=>n>0))).sort((a,b)=>a-b);
+    let previous=0;
+    const awards=[];
+    for(const level of levels){
+      const contributors=state.seats.filter(s=>s.totalCommitted>=level);
+      const amount=(level-previous)*contributors.length;
+      previous=level;
+      const eligible=contributors.filter(s=>!s.folded);
+      if(!eligible.length){
+        const share=Math.floor(amount/contributors.length),remainder=amount-share*contributors.length;
+        contributors.forEach((s,i)=>s.stack+=share+(i<remainder?1:0));
+        continue;
+      }
+      let best=eligible[0];
+      for(const seat of eligible.slice(1))if(compareRank(ranks.get(seat.id),ranks.get(best.id))>0)best=seat;
+      const winners=eligible.filter(s=>compareRank(ranks.get(s.id),ranks.get(best.id))===0);
+      const share=Math.floor(amount/winners.length),remainder=amount-share*winners.length;
+      winners.forEach((s,i)=>s.stack+=share+(i<remainder?1:0));
+      awards.push(winners.map(s=>s.isYou?"You":s.name).join(" / ")+" win "+amount+" with "+rankName(ranks.get(best.id)));
+    }
+    state.pot=0;state.stage="showdown";
+    state.last=awards.length?awards.join(" · "):"Showdown complete. Uncalled chips returned.";
+    const won=awards.some(a=>a.startsWith("You "));
+    const lost=!won&&you().stack<1000;
+    result(state.last,won?"win":lost?"loss":"");
+  }
+  function runOut(){
+    while(state.board.length<5)state.board.push(state.deck.pop());
+    finishShowdown();
+  }
+  function advanceStreet(){
+    if(state.street>=3){finishShowdown();return;}
+    if(state.street===0)state.board.push(state.deck.pop(),state.deck.pop(),state.deck.pop());
+    else state.board.push(state.deck.pop());
+    state.street++;
+    state.currentBet=0;state.minRaise=10;state.currentSeat=state.button;
+    state.seats.forEach(s=>{s.streetCommitted=0;s.acted=s.folded||s.allIn;});
+    if(active().length<=1){runOut();return;}
+    state.last=["","Flop dealt.","Turn dealt.","River dealt."][state.street]||"Next street.";
+    processTurn();
+  }
+  function roundComplete(){
+    const players=active();
+    return players.every(s=>s.acted&&s.streetCommitted>=state.currentBet);
+  }
+  function processTurn(){
+    let guard=0;
+    while(state.stage==="action"&&guard++<60){
+      if(live().length<=1){awardFold();render();return;}
+      if(roundComplete()){
+        if(active().length<=1){runOut();render();return;}
+        advanceStreet();return;
+      }
+      const next=findNextActor();
+      if(next<0){
+        if(state.street>=3){finishShowdown();render();return;}
+        advanceStreet();return;
+      }
+      state.currentSeat=next;
+      const seat=state.seats[next];
+      if(seat.isYou){render();return;}
+      botAction(seat);
+    }
+    if(state.stage==="action"){state.last="Betting round reached its safety limit; the hand was completed.";runOut();render();}
+  }
+  function raiseFor(seat,target){
+    const previous=state.currentBet;
+    const paid=pay(seat,Math.max(0,target-seat.streetCommitted));
+    if(seat.streetCommitted>state.currentBet){
+      const raiseBy=seat.streetCommitted-previous;
+      state.currentBet=seat.streetCommitted;
+      if(raiseBy>=state.minRaise)state.minRaise=raiseBy;
+      state.seats.forEach(other=>{if(other!==seat&&!other.folded&&!other.allIn)other.acted=false;});
+    }
+    seat.acted=true;
+    return paid;
+  }
+  function botAction(seat){
+    const cost=Math.max(0,state.currentBet-seat.streetCommitted);
+    const strength=estimateStrength(seat.hole,state.board,isOmaha);
+    const opponents=Math.max(1,live().length-1);
+    const pot=potTotal();
+    const potOdds=cost===0?0:cost/(pot+cost);
+    const threshold=Math.max(.12,potOdds+.07+Math.max(0,opponents-1)*.035-(seat.loose||0)*.32-(seat.skill||0)*.08);
+    const adjusted=strength+(Math.random()-.5)*(.025+(seat.skill||0)*.08);
+    const canRaise=active().length>1&&seat.stack>cost+state.minRaise;
+    const aggressive=adjusted>(.64-(seat.aggression||0)*.12)&&Math.random()<(seat.aggression||.3);
+    if(cost>0&&adjusted<threshold){
+      seat.folded=true;seat.acted=true;
+      state.last=seat.name+" folds to the bet.";
+      return;
+    }
+    if(canRaise&&aggressive&&adjusted>.68){
+      let raiseBy=Math.max(state.minRaise,Math.floor((pot+cost)*(.18+(seat.aggression||.3)*.18)));
+      let target=state.currentBet+raiseBy;
+      if(isOmaha)target=Math.min(target,state.currentBet+pot+cost);
+      target=Math.min(target,seat.streetCommitted+seat.stack);
+      if(target>state.currentBet&&target-seat.streetCommitted>0){
+        raiseFor(seat,target);
+        state.last=seat.name+" raises to "+state.currentBet+".";
+        return;
+      }
+    }
+    if(cost>0){
+      const paid=pay(seat,cost);
+      seat.acted=true;
+      state.last=seat.name+" calls "+paid+".";
+    }else{
+      seat.acted=true;
+      state.last=seat.name+" checks.";
+    }
+  }
+  function startHand(){
+    if(!you()||you().stack<=0){state.stage="over";result("Your stack is empty. Cash out the table balance.","loss");render();return;}
+    state.seats.forEach((s,i)=>{
+      if(!s.isYou&&s.stack<=0)s.stack=1000;
+      s.folded=false;s.allIn=false;s.acted=false;s.streetCommitted=0;s.totalCommitted=0;s.hole=[];
+    });
+    state.button=(state.button+1)%state.seats.length;
+    state.deck=shuffledDeck();state.board=[];state.street=0;state.currentBet=0;state.minRaise=10;state.pot=0;state.showCards=false;state.stage="action";
     const holeCount=isOmaha?4:2;
-    for(let i=0;i<holeCount;i++){state.you.push(state.deck.pop());state.bot.push(state.deck.pop());}
-    state.stack-=10;state.botStack-=5;state.pot=15;
-    state.last="Blinds posted (5/10). Choose an action.";status=state.last;render();
+    for(let n=0;n<holeCount;n++)for(const seat of state.seats)seat.hole.push(state.deck.pop());
+    const smallBlind=(state.button+1)%state.seats.length, bigBlind=(state.button+2)%state.seats.length;
+    pay(state.seats[smallBlind],5);pay(state.seats[bigBlind],10);
+    state.currentBet=Math.max(...state.seats.map(s=>s.streetCommitted));
+    state.currentSeat=bigBlind;
+    state.last="Blinds posted (5/10). Four opponents are at the table.";
+    processTurn();
   }
-  function award(winner,message,tie) {
-    state.stage="showdown";
-    if(tie){const half=Math.floor(state.pot/2);state.stack+=half;state.botStack+=state.pot-half;}
-    else if(winner==="you")state.stack+=state.pot;
-    else state.botStack+=state.pot;
-    state.last=message;result(message,winner==="you"?"win":winner==="bot"?"loss":"");
-    if(state.stack<=0)state.stage="over";
-    render();
-  }
-  function showdown() {
-    const mine=handRank(state.you,state.board),theirs=handRank(state.bot,state.board);
-    const cmp=compareRank(mine,theirs);
-    if(cmp>0)award("you","You win with "+rankName(mine)+". The bot showed "+rankName(theirs)+".");
-    else if(cmp<0)award("bot","Bot wins with "+rankName(theirs)+". You showed "+rankName(mine)+".");
-    else award("tie","Split pot: both players made "+rankName(mine)+".",true);
-  }
-  function advanceStreet() {
-    state.street++;state.currentBet=0;state.youCommitted=0;state.botCommitted=0;
-    if(state.street===1)state.board.push(state.deck.pop(),state.deck.pop(),state.deck.pop());
-    else if(state.street===2||state.street===3)state.board.push(state.deck.pop());
-    else {showdown();return;}
-    state.stage="action";status=["","Flop dealt. You act first.","Turn dealt. You act first.","River dealt. Final betting round.",""][state.street];render();
-  }
-  function botResponse(userAggression) {
-    const strength=estimateStrength(state.bot,state.board,isOmaha);
-    const cost=state.currentBet-state.botCommitted;
-    const potOdds=cost<=0?0:cost/(state.pot+cost);
-    const adjusted=strength-(state.board.length===5?.035:0);
-    if(cost>0&&adjusted<Math.max(.22,potOdds+.12)) {
-      state.botStack+=0;
-      award("you","The bot folds. You collect the pot.");
-      return;
+  function playerAction(type){
+    if(state.stage!=="action"||state.currentSeat!==0)return;
+    const seat=you(),due=Math.max(0,state.currentBet-seat.streetCommitted);
+    if(type==="fold"){
+      seat.folded=true;seat.acted=true;state.last="You fold. The hand continues between the remaining seats.";
+    } else if(type==="call"){
+      const paid=pay(seat,due);seat.acted=true;
+      state.last=due>0?"You call "+paid+".":"You check.";
+    } else if(type==="allin"){
+      const target=seat.streetCommitted+seat.stack;
+      const paid=raiseFor(seat,target);
+      state.last="You move all-in for "+paid+" chips.";
+    } else if(type==="raise"){
+      if(active().length<2){result("There is nobody left who can call a raise.","loss");return;}
+      let target=Number(root.querySelector("#raiseTo")?.value||state.currentBet+state.minRaise);
+      const maxStack=seat.streetCommitted+seat.stack;
+      if(isOmaha){
+        const pot=potTotal(),maxPot=state.currentBet+pot+due;
+        target=Math.min(target,maxPot);
+      }
+      target=Math.min(target,maxStack);
+      if(!Number.isFinite(target)||target<=state.currentBet){result("Enter a raise-to amount above the current bet.","loss");return;}
+      if(target<state.currentBet+state.minRaise&&target<maxStack){result("The minimum raise is "+(state.currentBet+state.minRaise)+".","loss");return;}
+      raiseFor(seat,target);
+      state.last="You raise to "+state.currentBet+".";
     }
-    if(cost>0) {
-      const paid=Math.min(cost,state.botStack);
-      state.botStack-=paid;state.botCommitted+=paid;state.pot+=paid;
-      if(paid<cost){showdown();return;}
-      status="Bot calls. The hand continues.";
-      advanceStreet();
-      return;
-    }
-    if(!userAggression&&strength>.75&&Math.random()<.25&&state.botStack>0) {
-      const bet=Math.min(state.botStack,20);
-      state.botStack-=bet;state.botCommitted+=bet;state.currentBet=state.botCommitted;state.pot+=bet;
-      status="Bot makes a value bet of "+bet+". Call, raise or fold.";
-      render();return;
-    }
-    status="Bot checks. The next street is dealt.";
-    advanceStreet();
+    processTurn();
   }
-  function playerAction(type) {
-    if(state.stage!=="action")return;
-    if(type==="fold"){award("bot","You folded. The bot takes the pot.");return;}
-    if(type==="allin"||type==="raise") {
-      const availableToCommit=state.youCommitted+state.stack;
-      const due=Math.max(0,state.currentBet-state.youCommitted);
-      const isOmaha=game.name.toLowerCase().includes("omaha");
-      const potLimitRaiseTo=state.currentBet+state.pot+due;
-      const noLimitRaiseTo=Math.max(20,state.currentBet*2||20);
-      const desired=type==="allin"?availableToCommit:Math.min(availableToCommit,isOmaha?potLimitRaiseTo:noLimitRaiseTo);
-      const pay=Math.min(state.stack,Math.max(0,desired-state.youCommitted));
-      if(pay<=0){result("There are no chips available to raise.","loss");return;}
-      state.stack-=pay;state.youCommitted+=pay;state.pot+=pay;
-      if(state.youCommitted>state.currentBet)state.currentBet=state.youCommitted;
-      if(type==="allin"&&state.stack===0){const botCost=state.currentBet-state.botCommitted;const strength=estimateStrength(state.bot,state.board,isOmaha);if(strength<.43&&botCost>0){award("you","Bot folds to your all-in.");return;}const call=Math.min(botCost,state.botStack);state.botStack-=call;state.botCommitted+=call;state.pot+=call;while(state.board.length<5)state.board.push(state.deck.pop());showdown();return;}
-      result("You raise to "+state.currentBet+". The bot considers the pot odds.","");
-      botResponse(true);return;
-    }
-    if(state.currentBet>state.youCommitted) {
-      const due=state.currentBet-state.youCommitted;
-      const paid=Math.min(due,state.stack);
-      state.stack-=paid;state.youCommitted+=paid;state.pot+=paid;
-      if(paid<due){while(state.board.length<5)state.board.push(state.deck.pop());showdown();return;}
-      botResponse(true);
-    } else {
-      botResponse(false);
-    }
-  }
-  function cashout() {
+  function cashout(){
     if(!state.buyIn||state.cashed)return;
-    if(state.stage==="action"){state.botStack+=state.pot;state.pot=0;state.stage="over";}
-    const payout=Math.max(0,Math.floor(state.buyIn*state.stack/1000));
-    state.cashed=true;wallet.settle(state.buyIn,payout,game.name);
-    state.last="Cashed out "+payout+" credits from "+state.stack+" table chips.";
+    if(state.stage==="action")state.stage="over";
+    const stack=Math.max(0,you().stack);
+    const payout=Math.max(0,Math.floor(state.buyIn*stack/1000));
+    state.cashed=true;
+    wallet.settle(state.buyIn,payout,game.name);
+    state.last="Cashed out "+payout+" credits from "+stack+" table chips.";
     result(state.last,payout>state.buyIn?"win":payout<state.buyIn?"loss":"");
     render();
   }
-  function click(e) {
+  function click(e){
     const button=e.target.closest("[data-act]");if(!button)return;
     const act=button.dataset.act;
-    if(act==="buy") {
-      const amount=Number(root.querySelector("#stake").value);
+    if(act==="buy"){
+      if(state.buyIn&&!state.cashed)return;
+      const amount=Number(root.querySelector("#stake")?.value||0);
       if(!Number.isInteger(amount)||amount<10){result("Minimum buy-in is 10 credits.","loss");return;}
       if(!wallet.charge(amount)){result("Not enough credits for that buy-in.","loss");return;}
-      state.buyIn=amount;state.stack=1000;state.botStack=1000;state.cashed=false;startHand();
-    } else if(act==="next") {if(!state.cashed&&state.stack>0&&state.botStack>0){startHand();}else{state.stage="over";result("The table is finished. Cash out your remaining stack.","");render();}}
-    else if(act==="cashout")cashout();
+      state.buyIn=amount;state.seats=makeSeats();state.cashed=false;state.button=-1;startHand();
+    } else if(act==="next"){
+      if(!state.cashed&&you().stack>0&&(state.stage==="showdown"||state.stage==="over"))startHand();
+      else {state.stage="over";result("The table is finished. Cash out your remaining stack.","");render();}
+    } else if(act==="cashout")cashout();
     else playerAction(act);
   }
   root.addEventListener("click",click);
