@@ -86,13 +86,19 @@ export function mountArena3D(root,initialConfig={}){
     const label=createLabel((player.human?"YOU · ":"")+player.name,2.35,.55);label.position.set(0,3.12,.1);group.add(label);
     if(player.score!==undefined){const score=createLabel("SCORE · "+player.score,2.0,.42);score.position.set(0,3.62,.1);group.add(score);}
     if(player.stack!==undefined){const stack=createLabel(player.stack+" CHIPS",1.9,.4);stack.position.set(0,.15,.1);group.add(stack);}
+    group.userData.avatar=true;group.userData.bobPhase=index*.9;
     world.add(group);
     const dice=player.dice||[];
     if(player.holeCards?.length){
       player.holeCards.slice(0,5).forEach((label,i)=>world.add(createCard(label,!!player.hideCards,x+(i-(player.holeCards.length-1)/2)*.62,z+(z>0?-1.55:1.5),0)));
     }
     dice.slice(0,5).forEach((v,i)=>world.add(createDie(v,x+(i-2)*.62,z+(z>0?-1.45:1.35),.42)));
-    for(let i=dice.length;i<(player.hiddenDice||0);i++)world.add(createDie(1,x+((i%5)-2)*.6,z+(z>0?-1.4:1.4),.4));
+    if(player.hiddenDice>0){
+      const cup=new THREE.Mesh(new THREE.CylinderGeometry(.42,.54,.76,28),new THREE.MeshStandardMaterial({color:0x9a8150,metalness:.52,roughness:.34}));
+      cup.position.set(x,1.58,z+(z>0?-1.42:1.42));cup.castShadow=true;world.add(cup);
+      const lip=new THREE.Mesh(new THREE.TorusGeometry(.46,.055,8,28),new THREE.MeshStandardMaterial({color:0xe2ce95,metalness:.72,roughness:.25}));
+      lip.rotation.x=Math.PI/2;lip.position.set(x,1.2,z+(z>0?-1.42:1.42));world.add(lip);
+    }
   };
   const addBoardObjects=()=>{
     const data=config.boardData;
@@ -181,8 +187,6 @@ export function mountArena3D(root,initialConfig={}){
     if(config.kind==="poker"){
       const board=config.board||[];
       board.forEach((c,i)=>world.add(createCard(c,false,(i-2)*.9,-.25,0)));
-      const playerCards=config.playerCards||[];
-      playerCards.forEach((c,i)=>world.add(createCard(c,false,(i-(playerCards.length-1)/2)*.9,2.1,0)));
       if(!board.length){
         for(let i=0;i<5;i++)world.add(createCard("RINCON",true,(i-2)*.9,-.25,0));
       }
@@ -220,6 +224,7 @@ export function mountArena3D(root,initialConfig={}){
   const render=()=>{
     if(disposed||!renderer)return;
     frame=requestAnimationFrame(render);
+    if(world){const t=performance.now()*.001;world.children.forEach(node=>{if(node.userData.avatar)node.position.y=Math.sin(t*1.6+(node.userData.bobPhase||0))*.035;});}
     updateCamera();renderer.render(scene,camera);
   };
   const initialize=async()=>{
