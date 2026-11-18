@@ -104,48 +104,105 @@ function mountRoulette(game,root,wallet){
   render();return {close:()=>{},destroy:click};
 }
 function mountBlackjack(game,root,wallet){
-  const c=common(game,root,wallet);let s=null;
-  const payout=game.name.toLowerCase().includes("spanish")||game.name.toLowerCase().includes("pontoon")?2.0:2.5;
-  const soft17=game.name.toLowerCase().includes("vegas")||game.name.toLowerCase().includes("atlantic");
+  const c=common(game,root,wallet);
+  const hitSoft17=game.name.toLowerCase().includes("hits soft 17");
+  let s=null;
+  function isPair(cards){
+    return cards.length===2&&value(cards[0])===value(cards[1]);
+  }
+  function activeHand(){return s&&s.hands[s.active];}
+  function handName(i){return "Hand "+(i+1);}
+  function settleHands(){
+    while(total(s.dealer)<17||(hitSoft17&&total(s.dealer)===17&&s.dealer.some(x=>x.rank==="A")))s.dealer.push(s.deck.pop());
+    const dealerTotal=total(s.dealer),dealerBust=dealerTotal>21;
+    let gross=0,results=[];
+    for(let i=0;i<s.hands.length;i++){
+      const hand=s.hands[i],playerTotal=total(hand.cards);
+      let payout=0,outcome="loss";
+      if(hand.busted){payout=0;outcome="bust";}
+      else if(hand.natural&&s.hands.length===1){
+        if(dealerTotal===21){payout=hand.bet;outcome="push";}
+        else {payout=Math.floor(hand.bet*2.5);outcome="natural blackjack";}
+      } else if(dealerBust||playerTotal>dealerTotal){payout=hand.bet*2;outcome=dealerBust?"dealer bust":"win";}
+      else if(playerTotal===dealerTotal){payout=hand.bet;outcome="push";}
+      gross+=payout;results.push(handName(i)+": "+outcome+" ("+playerTotal+" vs "+dealerTotal+")");
+    }
+    s.finished=true;s.payout=gross;s.message=results.join(" · ");s.win=gross>s.totalBet;s.loss=gross<s.totalBet;
+    c.settle(s.totalBet,gross,s.message);render();
+  }
+  function advanceHand(){
+    while(s.active<s.hands.length&&s.hands[s.active].status!=="active")s.active++;
+    if(s.active>=s.hands.length){settleHands();return;}
+    s.message="Your turn: "+handName(s.active)+".";
+    render();
+  }
+  function dealerNatural(){
+    return total(s.dealer)===21&&s.dealer.length===2;
+  }
   function render(){
-    let body='<div class="tiny-note">'+game.name.toUpperCase()+' · '+(soft17?"DEALER HITS SOFT 17":"DEALER STANDS ON SOFT 17")+' · NATURAL PAYS '+(payout===2.5?"3:2":"1:1")+'</div>';
-    if(!s){body+='<div class="table-felt"><h3>Twenty-one</h3><p class="muted">Beat the house without going over 21. Blackjack is an Ace plus a ten-value card on the initial deal.</p><div class="playing-cards" style="font-size:40px">♠ ♥ ♦ ♣</div><div class="action-row"><button class="game-action primary" data-act="deal">Deal cards</button></div></div>';}
-    else {
-      body+='<div class="table-felt"><div class="table-seats"><div class="seat"><small>DEALER</small><strong>'+ (s.finished?total(s.dealer):"?")+'</strong></div><div class="seat"><small>YOU</small><strong>'+total(s.player)+'</strong></div></div><div class="tiny-note">DEALER HAND</div><div class="playing-cards">'+s.dealer.map((x,i)=>cardHTML(x,!s.finished&&i===1)).join("")+'</div><div class="tiny-note">YOUR HAND</div><div class="playing-cards">'+s.player.map(x=>cardHTML(x,false)).join("")+'</div><div class="action-row">'+
-        '<button class="game-action primary" data-act="hit" '+(s.finished?"disabled":"")+'>Hit</button><button class="game-action secondary" data-act="stand" '+(s.finished?"disabled":"")+'>Stand</button><button class="game-action secondary" data-act="double" '+(s.finished||s.player.length!==2?"disabled":"")+'>Double down</button><button class="game-action secondary" data-act="again" '+(!s.finished?"disabled":"")+'>New hand</button></div></div>';
+    let body='<div class="tiny-note">'+game.name.toUpperCase()+' · SIX-DECK TABLE · DEALER STANDS ON SOFT 17 · PAIR SPLITS AND DOUBLE DOWN</div>';
+    if(!s){
+      body+='<div class="table-felt"><h3>Twenty-one</h3><p class="muted">Beat the dealer without going over 21. Split matching-value pairs into two hands, double down on a two-card hand, or stand.</p><div class="playing-cards" style="font-size:40px">♠ ♥ ♦ ♣</div><div class="action-row"><button class="game-action primary" data-act="deal">Deal cards</button></div></div>';
+    } else {
+      body+='<div class="table-felt"><div class="table-seats"><div class="seat"><small>DEALER</small><strong>'+(s.finished?total(s.dealer):"?")+'</strong></div><div class="seat"><small>YOUR TOTAL WAGER</small><strong>'+s.totalBet+'</strong></div></div><div class="tiny-note">DEALER HAND</div><div class="playing-cards">'+s.dealer.map((x,i)=>cardHTML(x,!s.finished&&i===1)).join("")+'</div>';
+      body+='<div class="tiny-note">YOUR HANDS</div>';
+      body+=s.hands.map((hand,i)=>'<div class="aside-card" style="max-width:650px;margin:10px auto;border-color:'+(i===s.active&&!s.finished?"#8b9561":"#394333")+'"><div class="aside-line"><strong>'+handName(i)+(i===s.active&&!s.finished?" · YOUR TURN":"")+'</strong><span>'+total(hand.cards)+' · '+hand.bet+' credits</span></div><div class="playing-cards">'+hand.cards.map(x=>cardHTML(x,false)).join("")+'</div><div class="tiny-note">'+(hand.status==="active"?"PLAYING":hand.status.toUpperCase())+'</div></div>').join("");
+      if(!s.finished){
+        const hand=activeHand();
+        body+='<div class="action-row"><button class="game-action primary" data-act="hit">Hit</button><button class="game-action secondary" data-act="stand">Stand</button><button class="game-action secondary" data-act="double" '+(hand.cards.length!==2?"disabled":"")+' >Double down</button><button class="game-action secondary" data-act="split" '+(!isPair(hand.cards)||s.hands.length>=2?"disabled":"")+' >Split pair</button></div>';
+      } else {
+        body+='<div class="action-row"><button class="game-action primary" data-act="again">New hand</button></div>';
+      }
     }
     c.page(body,true);
-    if(s&&s.message)c.status(s.message,s.outcome==="win"?"win":s.outcome==="loss"?"loss":"");
+    if(s&&s.message)c.status(s.message,s.win?"win":s.loss?"loss":"");
   }
-  function finish(outcome,message,gross){
-    if(s.finished)return;s.finished=true;s.outcome=outcome;s.message=message;c.settle(s.bet,gross,message);render();
-  }
-  function dealerPlay(){
-    while(total(s.dealer)<17||(soft17&&total(s.dealer)===17&&s.dealer.some(x=>x.rank==="A")))s.dealer.push(s.deck.pop());
-    const p=total(s.player),d=total(s.dealer);
-    if(d>21||p>d)finish("win",d>21?"Dealer busts at "+d+". You win.":"You win "+p+" to "+d+".",s.bet*2);
-    else if(d===p)finish("push","Push at "+p+".",s.bet);
-    else finish("loss","Dealer wins "+d+" to "+p+".",0);
+  function startHand(){
+    if(s&&!s.finished)return;
+    const bet=c.charge();if(bet===null)return;
+    const deck=cardDeck(6),player=[deck.pop(),deck.pop()],dealer=[deck.pop(),deck.pop()];
+    s={bet,totalBet:bet,deck,hands:[{cards:player,bet,status:"active",busted:false,natural:total(player)===21}],dealer,active:0,finished:false,message:"You have "+total(player)+". Hit, stand, split or double down.",payout:0};
+    if(total(player)===21||dealerNatural()){
+      s.active=0;
+      if(total(player)===21&&!dealerNatural()){s.finished=true;s.payout=Math.floor(bet*2.5);s.message="Natural blackjack!";s.win=true;s.loss=false;c.settle(bet,s.payout,s.message);render();return;}
+      if(total(player)===21&&dealerNatural()){s.finished=true;s.payout=bet;s.message="Both player and dealer have natural blackjack. Push.";s.win=false;s.loss=false;c.settle(bet,bet,s.message);render();return;}
+      if(dealerNatural()){s.finished=true;s.payout=0;s.message="Dealer has natural blackjack.";s.win=false;s.loss=true;c.settle(bet,0,s.message);render();return;}
+    }
+    render();
   }
   function click(e){
     const b=e.target.closest("[data-act]");if(!b)return;
-    if(b.dataset.act==="deal"||b.dataset.act==="again"){
-      if(s&&!s.finished)return;const bet=c.charge();if(bet===null)return;s={bet,deck:cardDeck(6),player:[],dealer:[],finished:false};
-      s.player=[s.deck.pop(),s.deck.pop()];s.dealer=[s.deck.pop(),s.deck.pop()];
-      const p=total(s.player),d=total(s.dealer);
-      if(p===21&&d===21)finish("push","Both have a natural blackjack. Push.",bet);
-      else if(p===21)finish("win","Natural blackjack!",Math.floor(bet*payout));
-      else if(d===21)finish("loss","Dealer has natural blackjack.",0);
-      else {s.message="You have "+p+". Hit, stand or double down.";render();}
-    } else if(!s||s.finished)return;
-    else if(b.dataset.act==="hit"){
-      s.player.push(s.deck.pop());const p=total(s.player);if(p>21)finish("loss","Bust at "+p+".",0);else if(p===21)dealerPlay();else{s.message="You have "+p+". Hit or stand?";render();}
-    } else if(b.dataset.act==="stand")dealerPlay();
-    else if(b.dataset.act==="double"){
-      if(s.player.length!==2)return;if(!wallet.charge(s.bet)){c.status("Not enough credits to double.","loss");return;}s.bet*=2;s.player.push(s.deck.pop());if(total(s.player)>21)finish("loss","Double down busts at "+total(s.player)+".",0);else dealerPlay();
+    const action=b.dataset.act;
+    if(action==="deal"||action==="again"){startHand();return;}
+    if(!s||s.finished)return;
+    const hand=activeHand();if(!hand||hand.status!=="active")return;
+    if(action==="hit"){
+      hand.cards.push(s.deck.pop());
+      const score=total(hand.cards);
+      if(score>21){hand.status="bust";hand.busted=true;advanceHand();}
+      else if(score===21){hand.status="stood";advanceHand();}
+      else{s.message=handName(s.active)+" has "+score+". Hit or stand.";render();}
+    } else if(action==="stand"){
+      hand.status="stood";advanceHand();
+    } else if(action==="double"){
+      if(hand.cards.length!==2)return;
+      if(!wallet.charge(hand.bet)){c.status("Not enough credits to double down.","loss");return;}
+      s.totalBet+=hand.bet;hand.bet*=2;hand.cards.push(s.deck.pop());
+      hand.busted=total(hand.cards)>21;hand.status=hand.busted?"bust":"stood";
+      advanceHand();
+    } else if(action==="split"){
+      if(!isPair(hand.cards)||s.hands.length>=2)return;
+      if(!wallet.charge(hand.bet)){c.status("Not enough credits to split this hand.","loss");return;}
+      s.totalBet+=hand.bet;
+      const first=hand.cards[0],second=hand.cards[1],aces=first.rank==="A";
+      s.hands=[{cards:[first,s.deck.pop()],bet:hand.bet,status:"active",busted:false,natural:false},{cards:[second,s.deck.pop()],bet:hand.bet,status:"active",busted:false,natural:false}];
+      s.active=0;
+      if(aces){s.hands.forEach(h=>h.status="stood");advanceHand();}
+      else{s.message="Pairs split. Play "+handName(0)+", then "+handName(1)+".";render();}
     }
   }
-  const off=c.bind(click);render();return {close:()=>{if(s&&!s.finished)wallet.settle(s.bet,0,game.name);},destroy:off};
+  const off=c.bind(click);render();
+  return {close:()=>{if(s&&!s.finished)wallet.settle(s.totalBet,0,game.name);},destroy:off};
 }
 function mountBaccarat(game,root,wallet){
   const c=common(game,root,wallet);let pick="banker",last=null;
