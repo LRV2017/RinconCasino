@@ -2,27 +2,34 @@ const groups = [
   ["Roulette","roulette","◉","table",[
     "European Roulette","American Roulette","French Roulette","La Partage Roulette","En Prison Roulette","Single Zero Roulette","Double Zero Roulette","Lightning Roulette","Mini Roulette","Speed Roulette","Grand Roulette","VIP Roulette","Classic Roulette","Golden Wheel","Midnight Roulette","Royal Roulette","Casino Royale Wheel","High Roller Roulette","Zero Edge Roulette","Rincon Roulette"]],
   ["Blackjack","blackjack","♠","table",[
-    "Classic Blackjack","Atlantic City Blackjack","European Blackjack","Vegas Strip Blackjack","Spanish 21","Pontoon","Double Exposure Blackjack","Blackjack Switch","Super Fun 21","Perfect Pairs Blackjack","Double Attack Blackjack","Free Bet Blackjack","Surrender Blackjack","Single Deck Blackjack","Double Deck Blackjack","Eight Deck Blackjack","High Stakes Blackjack","Premium Blackjack","Speed Blackjack","Rincon Blackjack"]],
+    "Blackjack — Classic","Atlantic City Blackjack","Blackjack — European Room","Vegas Strip Blackjack","Blackjack — Gold Room","Blackjack — Velvet Room","Blackjack — The Garden","Blackjack — Night Lounge","Blackjack — High Stakes","Blackjack — Classic II","Blackjack — VIP Room","Blackjack — The Terrace","Blackjack — Silver Room","Blackjack — Midnight","Blackjack — Royal Table","Blackjack — Rincon Room","Blackjack — Speed Table","Blackjack — House Select","Blackjack — Private Room","Blackjack — Grand Table"
+  ]],
   ["Baccarat","baccarat","♦","table",[
-    "Punto Banco","Chemin de Fer","Baccarat Banque","Mini Baccarat","Speed Baccarat","No Commission Baccarat","EZ Baccarat","Dragon Bonus Baccarat","Panda 8 Baccarat","Fortune 6 Baccarat","Golden Baccarat","VIP Baccarat","Classic Baccarat","High Roller Baccarat","Squeeze Baccarat","Super 6 Baccarat","Lightning Baccarat","Royal Baccarat","Salon Baccarat","Rincon Baccarat"]],
+    "Punto Banco — Classic","Punto Banco — Mini Table","Punto Banco — Speed Table","Punto Banco — Gold Room","Punto Banco — Silver Room","Punto Banco — VIP Table","Punto Banco — Night Lounge","Punto Banco — Royal Room","Punto Banco — Grand Table","Punto Banco — Private Room","Punto Banco — The Terrace","Punto Banco — Garden Table","Punto Banco — High Stakes","Punto Banco — Classic II","Punto Banco — Rincon Room","Punto Banco — Velvet Room","Punto Banco — Midnight","Punto Banco — House Select","Punto Banco — Premier","Punto Banco — Grand Salon"
+  ]],
   ["Poker Tables","poker","♣","table",[
-    "Texas Hold'em","No-Limit Hold'em","Limit Hold'em","Pot-Limit Omaha","Omaha Hi-Lo","Short Deck Hold'em","Pineapple Hold'em","Crazy Pineapple","Five-Card Draw","Seven-Card Stud","Razz Poker","Seven-Card Stud Hi-Lo","Triple Draw Lowball","2-7 Single Draw","Heads-Up Hold'em","Deep Stack Hold'em","Turbo Hold'em","Sit & Go Hold'em","Six-Max Hold'em","Rincon Hold'em"]],
+    "Texas Hold'em","Texas Hold'em — Heads-Up","Texas Hold'em — Deep Stack","Pot-Limit Omaha","Texas Hold'em — Turbo Table","Texas Hold'em — Classic Table","Texas Hold'em — Night Table","Texas Hold'em — Gold Room","Texas Hold'em — Silver Room","Texas Hold'em — VIP Table","Texas Hold'em — Short Session","Texas Hold'em — High Stakes","Texas Hold'em — Rincon Room","Texas Hold'em — Grand Table","Texas Hold'em — Private Table","Texas Hold'em — 6-Max Seat","Texas Hold'em — The Terrace","Texas Hold'em — Velvet Room","Texas Hold'em — Midnight","Texas Hold'em — House Select"
+  ]],
   ["Video Poker","videopoker","▣","arcade",[
-    "Jacks or Better","Bonus Poker","Double Bonus Poker","Double Double Bonus","Deuces Wild","Joker Poker","Tens or Better","Aces and Faces","Bonus Deuces Wild","Loose Deuces","White Hot Aces","All American Poker","Pick'em Poker","Multi-Strike Poker","Super Bonus Poker","Royal Aces","Double Jackpot Poker","Triple Play Poker","Five Play Poker","Rincon Video Poker"]],
+    "Jacks or Better","Jacks or Better — Gold Room","Jacks or Better — Silver Room","Jacks or Better — Classic II","Deuces Wild","Jacks or Better — VIP Table","Jacks or Better — The Terrace","Jacks or Better — Night Lounge","Deuces Wild — Gold Room","Deuces Wild — Classic Table","Jacks or Better — High Stakes","Jacks or Better — Rincon Room","Jacks or Better — Grand Table","Jacks or Better — Velvet Room","Jacks or Better — Midnight","Jacks or Better — Private Table","Jacks or Better — Premier","Jacks or Better — House Select","Jacks or Better — Royal Room","Jacks or Better — Speed Table"
+  ]],
   ["Slots","slots","✦","arcade",[
     "Golden Sevens","Midnight Riches","Emerald Fortune","Lucky Lanterns","Royal Reels","Desert Gold","Neon Nights","Pearl Palace","Wild Safari","Moonlight Millions","Temple of Fortune","Cash Cascade","Dragon's Hoard","Clover Club","Pharaoh's Fortune","Crystal Cavern","Velvet Vault","Starburst Lane","Rincon Reels","Jackpot Garden"]],
   ["Keno","keno","✳","arcade",[
     "Classic Keno","Quick Keno","10-Spot Keno","8-Spot Keno","Corner Keno","High Five Keno","Super Keno","Double Keno","Power Keno","Lucky Keno","Gold Keno","Rush Keno","80-Ball Keno","Caveman Keno","Diamond Keno","Fortune Keno","Pick 3 Keno","Pick 5 Keno","Pick 7 Keno","Rincon Keno"]],
   ["Dice Games","dice","⚄","table",[
-    "Craps","Sic Bo","Yahtzee","Farkle","Liar's Dice","Cee-lo","Bunco","Ship, Captain, Crew","Pig Dice","Shut the Box","Hazard","Grand Hazard","Under-Over 7","High Dice","Dice Poker","Chicago Dice","Ten Thousand","Greedy","Balut","Rincon Dice"]],
+    "Craps","Sic Bo","Yahtzee","Farkle","Liar's Dice","Cee-lo","Bunco","Ship, Captain, Crew","Pig","Shut the Box","Craps — Hazard Table","Craps — Grand Table","High-Low Dice","High-Low Dice — Classic","Dice Poker","Cee-lo — House Table","Farkle — Hot Dice","Farkle — Ten Thousand","Yahtzee — House Table","Sic Bo — Grand Table"
+  ]],
   ["Strategy & Bots","board","♟","strategy",[
-    "Tic-Tac-Toe","Ultimate Tic-Tac-Toe","Connect Four","PopOut Connect Four","Reversi","Othello","Gomoku","Five in a Row","Battleship","Salvo Battleship","Checkers","International Draughts","Nim","Marienbad","Dots and Boxes","Sprouts","Nine Men's Morris","Four-in-a-Row Blitz","Reversi Classic","Rincon Arena"]],
+    "Tic-Tac-Toe","Tic-Tac-Toe — Expert Bot","Connect Four","Connect Four — Expert Bot","Reversi","Othello","Gomoku","Five in a Row","Battleship","Battleship — Classic Fleet","Checkers","Checkers — House Match","Nim","Nim — Classic Piles","Dots and Boxes","Dots and Boxes — Expert Bot","Dots and Boxes — Classic","Four-in-a-Row Blitz","Reversi — Classic Table","Rincon Strategy Arena"
+  ]],
   ["Arcade & Wheels","wheel","◎","arcade",[
     "Coin Flip","Double or Nothing","Plinko","Lucky Plinko","Limbo","Crash Run","Mines","Treasure Grid","Hi-Lo Cards","Wheel of Fortune","Big Six Wheel","Prize Wheel","Multiplier Wheel","Color Wheel","Lucky 7 Wheel","High Roller Wheel","Rocket Cashout","Safecracker","Golden Ladder","Rincon Spin"]],
   ["Scratch Cards","scratch","▤","arcade",[
     "Lucky Clover Scratch","Golden Ticket","Triple Sevens Scratch","Diamond Mine","Treasure Chest","Cash Stack","Royal Flush Scratch","Lucky Horseshoe","Fortune Cookie","Emerald Scratch","Neon Jackpot","Wild West Gold","Dragon Scratch","Star Prize","Moon Money","Crown Jewels","Mystery Vault","Lucky Number 9","Double Diamond","Rincon Scratch"]],
   ["Number Draws","draw","▦","arcade",[
-    "Pick 3","Pick 4","Pick 5","Daily 6","Lucky 7 Draw","Mega 49","Power 60","Euro 50","Quick Pick","Cash Five","Lucky Stars","Daily Keno Draw","Triple Match","Double Draw","Millionaire's Row","Golden Numbers","Fortune 20","Rincon 6/49","Rincon 5/50","Grand Number Draw"]]
+    "Rincon 6/49","Daily 6/49","Lucky 6/49","Quick Pick 6/49","Golden 6/49","Royal 6/49","Midnight 6/49","Grand 6/49","House 6/49","The Terrace 6/49","VIP 6/49","Silver 6/49","Gold 6/49","Velvet 6/49","Premier 6/49","Private 6/49","Fortune 6/49","Rincon 6/49 — Night Draw","Rincon 6/49 — Grand Draw","Rincon 6/49 — Classic Draw"
+  ]]
 ];
 const descriptions = {
   roulette:"Choose a pocket, color or outside bet. French La Partage returns half an even-money stake on zero.",
