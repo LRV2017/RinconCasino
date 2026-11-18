@@ -83,7 +83,7 @@ function exercise(game,root){
       "mastermind":[{act:"start"},{slot:"0"},{act:"guess"}],
       "memory-match":[{act:"start"},{card:"0"},{card:"1"}],
       "minesweeper":[{act:"start"},{cell:"0"}],
-      "klondike":[{act:"start"},{act:"stock"}]
+      "klondike":[{act:"start"},{act:"stock"},{card:"waste"},{act:"to-foundation"}]
     };
     const steps=actions[game.mode];assert.ok(steps,game.name+" must have a dedicated extra-game controller");
     for(const step of steps)root.click(step);
