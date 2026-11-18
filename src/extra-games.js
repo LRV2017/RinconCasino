@@ -484,6 +484,202 @@ function mountKlondike(game,root,wallet){
   c.bind(click);render();return c;
 }
 
+
+function shuffledChambers(liveCount){
+  const chambers=Array(6).fill(false);
+  const slots=Array.from({length:6},(_,i)=>i);
+  for(let i=slots.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[slots[i],slots[j]]=[slots[j],slots[i]];}
+  for(let i=0;i<Math.max(1,Math.min(5,liveCount));i++)chambers[slots[i]]=true;
+  return chambers;
+}
+function mountChamberGame(game,root,wallet,devilsMode=false){
+  const c=makeGame(game,root,wallet);let s=null,arena=null;
+  const botNames=["Rico","Maya","Ace"];
+  const lives=devilsMode?3:1;
+  const liveCount=devilsMode?2:1;
+  const labels=devilsMode?["ORACLE LENS","WARD TOKEN","HEX CHARGE"]:["—"];
+  function makePlayers(){
+    return [
+      {name:"You",human:true,hp:lives,maxHp:lives,alive:true,items:{oracle:1,ward:1,hex:1},shield:0,stun:0},
+      ...botNames.map((name,i)=>({name,hp:lives,maxHp:lives,alive:true,items:{oracle:devilsMode&&i>0?1:0,ward:devilsMode?1:0,hex:devilsMode&&i===2?1:0},shield:0,stun:0,personality:["CAUTIOUS","TACTICAL","AGGRESSIVE"][i]}))
+    ];
+  }
+  const alive=()=>s.players.filter(p=>p.alive);
+  const nextAlive=from=>{
+    for(let step=1;step<=s.players.length;step++){
+      const i=(from+step)%s.players.length;
+      if(s.players[i].alive)return i;
+    }
+    return from;
+  };
+  const current=()=>s.players[s.turn];
+  function chamberInfo(){
+    return s.chambers.map((live,i)=>{
+      if(i<s.index)return "SPENT";
+      if(i===s.index&&s.scanFor===s.turn)return live?"LIVE":"BLANK";
+      return "UNKNOWN";
+    });
+  }
+  function playerTargetOptions(){
+    return s.players.map((p,i)=>p.alive&&i!==0?'<option value="'+i+'">'+esc(p.name)+' · '+p.hp+' ♥</option>':"").join("");
+  }
+  function scenePlayers(){
+    return s.players.map((p,i)=>({
+      name:p.name,human:!!p.human,score:p.hp,
+      status:!p.alive?"OUT":i===s.turn?"YOUR TURN":p.stun?"STUNNED":p.shield?"WARD READY":"IN THE GAME"
+    }));
+  }
+  function sceneConfig(){
+    return {
+      kind:"dice",title:game.name,players:scenePlayers(),
+      centerText:devilsMode?"DEMON'S DEAL":"RUSSIAN ROULETTE",
+      chamber:{current:s?s.index:0,display:s?chamberInfo():Array(6).fill("UNKNOWN"),liveCount},
+      pieces:devilsMode&&s?[
+        ...Array(s.players[0].items.oracle).fill(0).map(()=>({color:0x6b9ed2})),
+        ...Array(s.players[0].items.ward).fill(0).map(()=>({color:0xb6bd91})),
+        ...Array(s.players[0].items.hex).fill(0).map(()=>({color:0x9f5c8b}))
+      ]:[]
+    };
+  }
+  function syncArena(){
+    const config=sceneConfig();
+    if(!arena)arena=mountArena3D(root,config);else arena.update(config);
+  }
+  function statusText(){
+    if(!s)return "Start the table to take your seat.";
+    if(s.done)return s.message||"Round complete.";
+    return s.message||((s.turn===0)?"Your turn. Choose your action.":current().name+" is taking a turn.");
+  }
+  function render(type=""){
+    c.state=s;
+    if(!s){
+      c.page('<div class="chamber-game-intro"><section class="arena3d-stage" aria-label="3D chamber game table"></section><div class="table-felt"><h3>'+(devilsMode?"Demon’s Deal":"Russian Roulette")+'</h3><p class="muted">'+(devilsMode?"A four-seat survival showdown with hidden live and blank rounds, three tactical gadgets, shields and high-risk targeting.":"A classic six-chamber survival game against three local opponents. One chamber is loaded each cycle; the rest are harmless blanks.")+'</p><button class="game-action primary" data-act="start">Join the table</button></div></div>'+c.betInput(),statusText(),type);
+      syncArena();return;
+    }
+    const p=current(),canAct=!s.done&&s.turn===0;
+    const players=s.players.map((player,i)=>{
+      const hearts=player.alive?"♥".repeat(player.hp)+"♡".repeat(Math.max(0,player.maxHp-player.hp)):"ELIMINATED";
+      return '<div class="seat '+(!player.alive?"folded-seat":"")+(i===s.turn?" active-seat":"")+'"><small>'+(player.human?"YOU":esc(player.name))+'</small><strong>'+hearts+'</strong><span class="tiny-note">'+(!player.alive?"OUT":player.shield?"WARD ACTIVE":player.stun?"STUNNED":player.personality||"PLAYER")+'</span>'+(devilsMode&&!player.human?'<span class="tiny-note">LENS '+player.items.oracle+' · WARD '+player.items.ward+' · HEX '+player.items.hex+'</span>':"")+'</div>';
+    }).join("");
+    const history=s.history.slice(-5).map(x=>'<div class="session-history-item">'+esc(x)+'</div>').join("");
+    const targetSelect='<label class="tiny-note">TARGET <select id="rrTarget" class="bet-input"><option value="0">Yourself</option>'+playerTargetOptions()+'</select></label>';
+    const actions=canAct
+      ?(devilsMode
+        ?'<div class="action-row">'+targetSelect+'<button class="game-action primary" data-act="pull">Take the shot</button></div><div class="action-row"><button class="game-action secondary" data-act="oracle" '+(!s.players[0].items.oracle||s.scanFor===0?"disabled":"")+' >Use Oracle Lens · '+s.players[0].items.oracle+'</button><button class="game-action secondary" data-act="ward" '+(!s.players[0].items.ward||s.players[0].shield?"disabled":"")+' >Use Ward · '+s.players[0].items.ward+'</button><button class="game-action secondary" data-act="hex" '+(!s.players[0].items.hex?"disabled":"")+' >Charge Hex · '+s.players[0].items.hex+'</button></div>'
+        :'<div class="action-row"><button class="game-action primary" data-act="pull">Pull the trigger</button></div>')
+      :'<div class="action-row"><span class="tiny-note">'+(s.done?"Game over":p.name+" is making their move…")+'</span></div>';
+    const ammo='<div class="chamber-hud"><span>CHAMBER '+(Math.min(6,s.index+1))+' / 6</span><span>ROUND '+s.round+'</span><span>'+ (devilsMode?"2 CHARGED · 4 BLANK":"1 LOADED · 5 BLANK")+'</span></div>';
+    const body='<section class="arena3d-stage" aria-label="Interactive 3D roulette chamber table"></section><div class="table-felt"><div class="table-seats">'+players+'</div>'+ammo+'<div class="tiny-note">'+(devilsMode?"A hit removes one heart. A Ward blocks one hit. A self-targeted blank earns an extra turn.":"A loaded chamber eliminates the player. A blank lets them survive until their next turn.")+'</div>'+actions+'</div><div class="aside-card"><small class="aside-label">TABLE LOG</small>'+(history||'<span class="aside-muted">The game is waiting for the first turn.</span>')+'</div>';
+    c.page(c.betInput()+body,statusText(),type);
+    syncArena();
+  }
+  function finish(){
+    if(s.done)return;
+    s.done=true;
+    const winner=alive()[0];
+    const won=winner&&winner.human;
+    s.message=won?"You are the last player standing. You win the table!":winner?winner.name+" is the last player standing. Better luck next time.":"Everyone is out. The table ends in a draw.";
+    render(won?"win":winner?"loss":"");
+    c.settle(s.stake,won?s.stake*3:winner?0:s.stake,s.message);
+  }
+  function reload(){
+    s.chambers=shuffledChambers(liveCount);s.index=0;s.round++;
+    s.scanFor=null;s.scanValue=null;
+    s.history.push("The dealer reloads a fresh six-chamber cylinder.");
+  }
+  function fire(shooter,targetIndex,bot=false){
+    const target=s.players[targetIndex];
+    if(!target||!target.alive)return;
+    const loaded=s.chambers[s.index];
+    s.lastShot={shooter:shooter.name,target:target.name,loaded};
+    const verb=loaded?"CHARGED ROUND":"BLANK";
+    if(loaded){
+      if(target.shield>0){
+        target.shield=0;
+        s.history.push(shooter.name+" targets "+target.name+" — "+verb+". Their Ward absorbs the hit.");
+      }else{
+        const damage=shooter.overcharge?2:1;shooter.overcharge=false;
+        target.hp=Math.max(0,target.hp-damage);
+        s.history.push(shooter.name+" targets "+target.name+" — "+verb+". "+target.name+" loses "+damage+" heart"+(damage>1?"s":"")+".");
+        if(target.hp===0){target.alive=false;s.history.push(target.name+" is eliminated from the match.");}
+      }
+    }else{
+      s.history.push(shooter.name+" targets "+target.name+" — "+verb+". No one is hurt.");
+      if(target===shooter){
+        s.history.push(shooter.name+" earns an extra turn for taking the risk.");
+        s.turn=s.players.indexOf(shooter);
+      }else s.turn=nextAlive(s.players.indexOf(shooter));
+    }
+    s.index++;
+    if(alive().length<=1){finish();return;}
+    if(s.index>=6)reload();
+    if(loaded||target!==shooter)s.turn=nextAlive(s.players.indexOf(shooter));
+    runBots();
+    render();
+  }
+  function botTakeTurn(bot){
+    if(bot.stun>0){bot.stun--;s.history.push(bot.name+" loses a turn to a Hex.");s.turn=nextAlive(s.turn);return;}
+    let targetIndex=s.turn;
+    if(devilsMode){
+      if(bot.items.oracle>0&&s.index<5&&Math.random()<.42){
+        bot.items.oracle--;bot.known=s.chambers[s.index];
+      }
+      const nextKnown=bot.known===undefined?s.chambers[s.index]:bot.known;
+      const weak=s.players.map((p,i)=>({p,i})).filter(x=>x.p.alive&&x.i!==s.turn).sort((a,b)=>a.p.hp-b.p.hp)[0];
+      const shouldAttack=weak&&(weak.p.hp<=1||bot.personality==="AGGRESSIVE"||nextKnown===true);
+      if(shouldAttack)targetIndex=weak.i;
+      if(bot.items.ward>0&&bot.hp===1&&Math.random()<.7){bot.items.ward--;bot.shield=1;s.history.push(bot.name+" activates a Ward.");}
+      if(bot.items.hex>0&&shouldAttack){bot.items.hex--;bot.overcharge=true;s.history.push(bot.name+" charges a Hex for its next hit.");}
+    }
+    bot.known=undefined;
+    fire(bot,targetIndex,true);
+  }
+  function runBots(){
+    let guard=0;
+    while(s&&!s.done&&s.turn!==0&&guard++<12){
+      const bot=current();
+      if(!bot||!bot.alive){s.turn=nextAlive(s.turn);continue;}
+      botTakeTurn(bot);
+    }
+    if(s&&!s.done&&s.turn===0)s.message="Your turn. The chamber is hidden — choose carefully.";
+  }
+  function start(){
+    if(s&&!s.done)return;
+    const bet=c.takeBet();if(!bet)return;
+    s={stake:bet,players:makePlayers(),chambers:shuffledChambers(liveCount),index:0,turn:0,round:1,history:[],scanFor:null,scanValue:null,message:"A new game begins. The cylinder is hidden.",done:false};
+    render();
+  }
+  c.bind(e=>{
+    const b=e.target.closest("[data-act]");if(!b)return;
+    if(b.dataset.act==="start"||b.dataset.act==="again"){start();return;}
+    if(!s||s.done||s.turn!==0)return;
+    const player=s.players[0];
+    if(b.dataset.act==="pull"){
+      const target=devilsMode?Number(root.querySelector("#rrTarget")?.value||0):0;
+      fire(player,target);return;
+    }
+    if(!devilsMode)return;
+    if(b.dataset.act==="oracle"&&player.items.oracle>0){
+      player.items.oracle--;s.scanFor=0;s.scanValue=s.chambers[s.index];
+      s.history.push("You use the Oracle Lens. The next chamber is "+(s.scanValue?"charged":"blank")+".");
+      s.message="Oracle Lens: "+(s.scanValue?"CHARGED ROUND":"BLANK")+". You may still take your turn.";render();return;
+    }
+    if(b.dataset.act==="ward"&&player.items.ward>0&&!player.shield){
+      player.items.ward--;player.shield=1;s.history.push("You activate a Ward. It will block one hit.");
+      s.message="Ward active. Choose a target and take your turn.";render();return;
+    }
+    if(b.dataset.act==="hex"&&player.items.hex>0){
+      player.items.hex--;player.overcharge=true;s.history.push("You charge a Hex. Your next hit deals double damage.");
+      s.message="Hex charged. Choose a target and take your turn.";render();return;
+    }
+  });
+  render();
+  const baseClose=c.close,baseDestroy=c.destroy;
+  c.close=()=>{baseClose();arena?.destroy();};
+  c.destroy=()=>{baseDestroy();arena?.destroy();};
+  return c;
+}
+
 export function mountExtraGame(game,root,wallet){
   switch(game.mode){
     case "three-card-poker":return mountThreeCardPoker(game,root,wallet);
@@ -494,6 +690,8 @@ export function mountExtraGame(game,root,wallet){
     case "pai-gow":return mountPaiGow(game,root,wallet);
     case "chuck-a-luck":return mountDiceSideBet(game,root,wallet,"chuck");
     case "crown-anchor":return mountDiceSideBet(game,root,wallet,"crown");
+    case "russian-roulette":return mountChamberGame(game,root,wallet,false);
+    case "demons-deal":return mountChamberGame(game,root,wallet,true);
     case "bingo-75":return mountBingo(game,root,wallet);
     case "mancala":return mountMancala(game,root,wallet);
     case "mastermind":return mountMastermind(game,root,wallet);
