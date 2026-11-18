@@ -349,6 +349,7 @@ function mountDice(game,root,wallet){
     }
     return {remaining,score:remaining.reduce((a,b)=>a+b,0),closed:false};
   }
+  const botNames=["Rico","Maya","Ace","Nova"];
   function botPoker(){
     let dice=roll(5);
     for(let turn=1;turn<3;turn++){
@@ -358,6 +359,21 @@ function mountDice(game,root,wallet){
       dice=dice.filter(x=>x===keepFace).concat(roll(5-keepCount));
     }
     return dice;
+  }
+  function pigBotTurn(total,threshold){
+    let score=0,steps=0;
+    while(score<threshold&&steps++<30){
+      const die=roll(1)[0];
+      if(die===1){score=0;break;}
+      score+=die;
+    }
+    return total+score;
+  }
+  function runPigBots(){
+    const thresholds=[16,20,24];
+    s.botTotals=s.botTotals.map((total,i)=>pigBotTurn(total,thresholds[i]));
+    const winner=s.botTotals.findIndex(total=>total>=100);
+    return winner;
   }
   function botShip(){
     let dice=roll(5),held=[],cargo=0,need=[6,5,4];
@@ -384,19 +400,19 @@ function mountDice(game,root,wallet){
     } else if(mode==="sicbo"){
       body+='<div class="choice-row">'+["big","small","odd","even","triple"].map(x=>'<button class="game-action '+((s?s.pick:"big")===x?"primary":"secondary")+'" data-pick="'+x+'">'+x.toUpperCase()+'</button>').join("")+'</div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div><div class="die">⚂</div>')+'</div><div class="tiny-note">BIG / SMALL / ODD / EVEN PAY 1:1 · ANY TRIPLE PAYS 30:1</div><div class="action-row"><button class="game-action primary" data-act="sicbo">Roll three dice</button></div>';
     } else if(mode==="yahtzee"||mode==="dice-poker"){
-      body+='<div class="tiny-note">UP TO THREE ROLLS · TAP DICE TO HOLD THEM</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div><div class="action-row"><button class="game-action primary" data-act="roll" '+(s&&s.rolls>=3?"disabled":"")+'>'+(s?"Roll "+(3-s.rolls)+" remaining":"Start roll")+'</button><button class="game-action secondary" data-act="score" '+(!s||!s.rolls||s.done?"disabled":"")+'>'+(mode==="dice-poker"?"Showdown":"Score hand")+'</button></div>';
+      body+='<div class="tiny-note">UP TO THREE ROLLS · TAP DICE TO HOLD THEM'+(mode==="dice-poker"?" · FOUR LOCAL OPPONENTS":"")+'</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div>'+(mode==="dice-poker"&&s&&s.opponents?'<div class="table-seats">'+s.opponents.map(o=>'<div class="seat"><small>'+o.name+'</small><strong>'+o.dice.join(" · ")+'</strong></div>').join("")+'</div>':"")+'<div class="action-row"><button class="game-action primary" data-act="roll" '+(s&&s.rolls>=3?"disabled":"")+'>'+(s?"Roll "+(3-s.rolls)+" remaining":"Start roll")+'</button><button class="game-action secondary" data-act="score" '+(!s||!s.rolls||s.done?"disabled":"")+'>'+(mode==="dice-poker"?"Showdown":"Score hand")+'</button></div>';
     } else if(mode==="farkle"){
       body+='<div class="tiny-note">SELECT A VALID SCORING SET · KEEP IT · ROLL THE REST OR BANK</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.selected.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(6))+'</div><div class="score-card"><strong>'+(s?s.points:0)+'</strong><span>TURN POINTS</span></div><div class="action-row"><button class="game-action primary" data-act="roll">Roll</button><button class="game-action secondary" data-act="keep" '+(!s||!s.selected.length||s.done?"disabled":"")+' >Keep selection</button><button class="game-action secondary" data-act="bank" '+(!s||!s.points||s.done?"disabled":"")+' >Bank points</button></div>';
     } else if(mode==="liars"){
       body+='<div class="tiny-note">LIAR’S DICE · 4 PLAYERS · 5 HIDDEN DICE EACH</div><div class="dice-tray">'+(s?s.mine.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">?</div>'.repeat(5))+'</div><div class="table-seats"><div class="seat"><small>YOUR DICE</small><strong>5 hidden</strong></div><div class="seat"><small>HOUSE BOTS</small><strong>15 hidden</strong></div></div><div class="action-row"><label class="tiny-note">COUNT <input id="bidCount" class="bet-input" type="number" min="1" max="20" value="'+(s&&s.lastBid?s.lastBid.count+1:1)+'"></label><label class="tiny-note">FACE <select id="bidFace" class="bet-input"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>1</option></select></label><button class="game-action primary" data-act="bid">Bid</button><button class="game-action danger" data-act="challenge" '+(!s||!s.lastBid||s.done?"disabled":"")+' >Challenge</button></div>';
     } else if(mode==="ceelo"){
-      body+='<div class="tiny-note">Cee-lo · 3 DICE · 4-5-6 WINS · 1-2-3 LOSES · TRIPLES BEAT POINTS</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.you.join(" · "):"—")+'</strong></div><div class="seat"><small>HOUSE</small><strong>'+(s?s.bot.join(" · "):"—")+'</strong></div></div><div class="action-row"><button class="game-action primary" data-act="ceelo">Roll against house</button></div>';
+      body+='<div class="tiny-note">Cee-lo · 3 DICE · FOUR-PLAYER TABLE · 4-5-6 WINS · 1-2-3 LOSES · TRIPLES BEAT POINTS</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.you.join(" · "):"—")+'</strong></div>'+(s&&s.bots?s.bots.map(o=>'<div class="seat"><small>'+o.name+'</small><strong>'+o.dice.join(" · ")+'</strong><span>'+o.rank.toFixed(2)+'</span></div>').join(""):'<div class="seat"><small>3 LOCAL BOTS</small><strong>READY</strong></div>')+'</div><div class="action-row"><button class="game-action primary" data-act="ceelo">Roll at the table</button></div>';
     } else if(mode==="bunco"){
-      body+='<div class="tiny-note">BUNCO · TARGET NUMBER '+(s?s.target:1)+' · 3 DICE · THREE TURNS EACH</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.youScore:0)+'</strong></div><div class="seat"><small>HOUSE BOT</small><strong>'+(s?s.botScore:0)+'</strong></div></div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div>'.repeat(3))+'</div><div class="action-row"><button class="game-action primary" data-act="bunco">Roll turn '+(s?s.turn+1:1)+'</button></div>';
+      body+='<div class="tiny-note">BUNCO · SIX ROUNDS · FOUR-PLAYER SCOREBOARD · TARGET '+(s?s.target:1)+'</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.scores[0]:0)+'</strong></div>'+(s?s.scores.slice(1).map((score,i)=>'<div class="seat"><small>'+botNames[i]+'</small><strong>'+score+'</strong></div>').join(""):'<div class="seat"><small>RICO · MAYA · ACE</small><strong>READY</strong></div>')+'</div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div>'.repeat(3))+'</div><div class="action-row"><button class="game-action primary" data-act="bunco">Roll round '+(s?s.turn+1:1)+'</button></div>';
     } else if(mode==="ship"){
-      body+='<div class="tiny-note">SHIP · CAPTAIN · CREW · CARGO · HOLD 6, THEN 5, THEN 4 · UP TO 3 ROLLS</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div><div class="action-row"><button class="game-action primary" data-act="ship">Roll / lock dice</button></div>';
+      body+='<div class="tiny-note">SHIP · CAPTAIN · CREW · CARGO · FOUR-PLAYER SHOWDOWN · HOLD 6, THEN 5, THEN 4</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div>'+(s&&s.opponents?'<div class="table-seats">'+s.opponents.map(o=>'<div class="seat"><small>'+o.name+' · CARGO</small><strong>'+o.cargo+'</strong></div>').join("")+'</div>':"")+'<div class="action-row"><button class="game-action primary" data-act="ship">Roll / lock dice</button></div>';
     } else if(mode==="pig"){
-      body+='<div class="tiny-note">PIG DICE · FIRST TO 100 · ROLL OR BANK YOUR TURN</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.youTotal:0)+' + '+(s?s.turnScore:0)+'</strong></div><div class="seat"><small>HOUSE BOT</small><strong>'+(s?s.botTotal:0)+'</strong></div></div><div class="dice-tray">'+(s?'<div class="die">'+faces[s.die]+'</div>':'<div class="die">⚀</div>')+'</div><div class="action-row"><button class="game-action primary" data-act="pigroll" '+(s&&s.done?"disabled":"")+' >Roll</button><button class="game-action secondary" data-act="pigbank" '+(!s||!s.turnScore||s.done?"disabled":"")+' >Hold turn</button></div>';
+      body+='<div class="tiny-note">PIG DICE · FOUR-PLAYER RACE TO 100 · ROLL OR BANK YOUR TURN</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.youTotal:0)+' + '+(s?s.turnScore:0)+'</strong></div>'+(s?s.botTotals.map((score,i)=>'<div class="seat"><small>'+botNames[i]+'</small><strong>'+score+'</strong></div>').join(""):'<div class="seat"><small>RICO · MAYA · ACE</small><strong>READY</strong></div>')+'</div><div class="dice-tray">'+(s?'<div class="die">'+faces[s.die]+'</div>':'<div class="die">⚀</div>')+'</div><div class="action-row"><button class="game-action primary" data-act="pigroll" '+(s&&s.done?"disabled":"")+' >Roll</button><button class="game-action secondary" data-act="pigbank" '+(!s||!s.turnScore||s.done?"disabled":"")+' >Hold turn</button></div>';
     } else if(mode==="shutbox"){
       body+='<div class="tiny-note">SHUT THE BOX · ROLL 2 DICE · CLOSE TILES THAT ADD TO THE TOTAL</div><div class="choice-row">'+(s?s.tiles.map(n=>'<button class="game-action '+(s.selected.includes(n)?"primary":"secondary")+'" data-tile="'+n+'" '+(!s.tiles.includes(n)||s.done?"disabled":"")+'>'+n+'</button>').join(""):Array.from({length:9},(_,i)=>'<button class="game-action secondary">'+(i+1)+'</button>').join(""))+'</div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div>')+'</div><div class="action-row"><button class="game-action primary" data-act="boxroll">Roll</button><button class="game-action secondary" data-act="boxclose" '+(!s||!s.selected.length||s.done?"disabled":"")+' >Close selected tiles</button><button class="game-action secondary" data-act="boxbank" '+(!s||s.done?"disabled":"")+' >End turn</button></div>';
     } else {
@@ -436,12 +452,17 @@ function mountDice(game,root,wallet){
       else if(b.dataset.act==="score"&&s&&!s.done){
         const rank=pokerDiceRank(s.dice);let multiplier=0,label="";
         if(mode==="dice-poker"){
-          multiplier=[0,0.5,1.2,2,4,8,15,30][rank[0]]||0;
           label=["High dice","Pair","Two pair","Three of a kind","Straight","Full house","Four of a kind","Five of a kind"][rank[0]];
-          const bot=botPoker(),botRank=pokerDiceRank(bot),cmp=compareRank(rank,botRank);
-          if(cmp>0){finish("You beat the bot with "+label+". Bot rolled "+bot.join(" · ")+".",Math.floor(s.bet*2));return;}
-          if(cmp===0){finish("Tie: both hands rank the same. Stake returned.",s.bet);return;}
-          finish("Bot wins with "+["High dice","Pair","Two pair","Three of a kind","Straight","Full house","Four of a kind","Five of a kind"][botRank[0]]+".",0);return;
+          const opponents=botNames.map(name=>{const dice=botPoker();return {name,dice,rank:pokerDiceRank(dice)};});
+          const allRanks=[rank,...opponents.map(o=>o.rank)];
+          const best=allRanks.reduce((top,current)=>compareRank(current,top)>0?current:top,rank);
+          const topBots=opponents.filter(o=>compareRank(o.rank,best)===0);
+          const playerTied=compareRank(rank,best)===0;
+          s.opponents=opponents;
+          const names=topBots.map(o=>o.name).join(", ");
+          if(playerTied&&!topBots.length){finish("You win the table with "+label+".",Math.floor(s.bet*2));return;}
+          if(playerTied){finish("Shared top hand: you and "+names+" tie with "+label+". Stake returned.",s.bet);return;}
+          finish(names+" win with "+["High dice","Pair","Two pair","Three of a kind","Straight","Full house","Four of a kind","Five of a kind"][best[0]]+".",0);return;
         } else {
           const counts={};s.dice.forEach(d=>counts[d]=(counts[d]||0)+1);const vals=Object.values(counts).sort((a,b)=>b-a),sorted=s.dice.slice().sort((a,b)=>a-b).join("");
           let score=sum(s.dice);
@@ -495,48 +516,67 @@ function mountDice(game,root,wallet){
       render();
     } else if(mode==="ceelo"&&b.dataset.act==="ceelo"){
       const bet=start();if(bet===null)return;
-      let you=roll(3),bot=roll(3),a=cLoRank(you),d=cLoRank(bot),attempt=0;
-      while(a===0&&attempt++<20){you=roll(3);a=cLoRank(you);}
-      attempt=0;while(d===0&&attempt++<20){bot=roll(3);d=cLoRank(bot);}
-      const diff=a-d,payout=diff>0?bet*2:diff===0?bet:0;
-      s={bet,you,bot};finish("You rolled "+you.join(" · ")+" ("+a.toFixed(2)+"), bot rolled "+bot.join(" · ")+" ("+d.toFixed(2)+"). "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),payout);
+      const rollRanked=()=>{let dice=roll(3),rank=cLoRank(dice),attempt=0;while(rank===0&&attempt++<30){dice=roll(3);rank=cLoRank(dice);}return {dice,rank};};
+      const you=rollRanked(),bots=botNames.slice(0,3).map(name=>({name,...rollRanked()}));
+      const best=Math.max(you.rank,...bots.map(o=>o.rank)),top=bots.filter(o=>o.rank===best),playerTop=you.rank===best;
+      s={bet,you:you.dice,bots,done:false};
+      const names=top.map(o=>o.name).join(", ");
+      if(playerTop&&!top.length){finish("You take the Cee-lo table with "+you.rank.toFixed(2)+".",bet*2);return;}
+      if(playerTop){finish("Cee-lo tie: you share the top roll with "+names+". Stake returned.",bet);return;}
+      finish(names+" win the Cee-lo table with "+best.toFixed(2)+".",0);
     } else if(mode==="bunco"&&b.dataset.act==="bunco"){
-      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,target:1,turn:0,youScore:0,botScore:0,dice:[],done:false};}
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,target:1,turn:0,scores:[0,0,0,0],dice:[],done:false};}
       s.target=(s.turn%6)+1;
-      const your=roll(3),bot=roll(3);
       const scoreRound=d=>d.every(x=>x===s.target)?21:d.filter(x=>x===s.target).length;
-      s.youScore+=scoreRound(your);s.botScore+=scoreRound(bot);s.dice=your;s.turn++;
-      if(s.turn>=6){const diff=s.youScore-s.botScore;finish("Bunco round complete. You "+s.youScore+" · Bot "+s.botScore+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;}
-      s.message="Round "+s.turn+" score: You "+s.youScore+" · Bot "+s.botScore+". Target was "+s.target+".";
+      const your=roll(3);s.scores[0]+=scoreRound(your);
+      for(let i=1;i<s.scores.length;i++)s.scores[i]+=scoreRound(roll(3));
+      s.dice=your;s.turn++;
+      if(s.turn>=6){
+        const best=Math.max(...s.scores),winners=s.scores.map((score,i)=>score===best?i:-1).filter(i=>i>=0);
+        const standings=s.scores.map((score,i)=>(i===0?"You":botNames[i-1])+" "+score).join(" · ");
+        const playerWon=winners.includes(0);
+        finish("Bunco final scores — "+standings+". "+(playerWon&&winners.length===1?"You win!":playerWon?"Shared first place.":"The bots win."),playerWon?(winners.length===1?s.bet*2:s.bet):0);return;
+      }
+      s.message="Round "+s.turn+" complete. Scores: "+s.scores.join(" / ")+". Target was "+s.target+".";
       render();
     } else if(mode==="ship"&&b.dataset.act==="ship"){
       if(!s||s.done){const bet=start();if(bet===null)return;s={bet,dice:roll(5),holds:[],rolls:1,done:false};}
       else if(s.rolls<3){
         const desired=[6,5,4];
         while(s.holds.length<3){const need=desired[s.holds.length],ix=s.dice.findIndex((d,i)=>d===need&&!s.holds.includes(i));if(ix<0)break;s.holds.push(ix);}
-        if(s.holds.length===3){const cargo=s.dice.filter((d,i)=>!s.holds.includes(i)),bot=botShip(),botCargo=bot.cargo;s.cargo=sum(cargo);const diff=s.cargo-botCargo;finish("Your ship 6-5-4 cargo: "+s.cargo+". Bot cargo: "+botCargo+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;}
+        if(s.holds.length===3){
+          const cargo=s.dice.filter((d,i)=>!s.holds.includes(i));s.cargo=sum(cargo);
+          s.opponents=botNames.slice(0,3).map(name=>({name,cargo:botShip().cargo}));
+          const best=Math.max(s.cargo,...s.opponents.map(o=>o.cargo)),top=s.opponents.filter(o=>o.cargo===best),playerTop=s.cargo===best;
+          const payout=playerTop?(top.length?s.bet:s.bet*2):0;
+          finish("Your cargo "+s.cargo+". "+s.opponents.map(o=>o.name+" "+o.cargo).join(" · ")+". "+(playerTop?(top.length?"Shared top cargo.":"You win the table."):"A bot wins the cargo contest."),payout);return;
+        }
         s.dice=s.dice.map((d,i)=>s.holds.includes(i)?d:roll(1)[0]);s.rolls++;s.message="Locked "+s.holds.length+" of 3 ship pieces. Roll again.";
       } else {
         const cargo=s.holds.length===3?sum(s.dice.filter((d,i)=>!s.holds.includes(i))):0;
-        const bot=botShip(),botCargo=bot.cargo,diff=cargo-botCargo;finish("Your cargo "+cargo+" · Bot cargo "+botCargo+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;
+        s.cargo=cargo;s.opponents=botNames.slice(0,3).map(name=>({name,cargo:botShip().cargo}));
+        const best=Math.max(cargo,...s.opponents.map(o=>o.cargo)),top=s.opponents.filter(o=>o.cargo===best),playerTop=cargo===best;
+        finish("Your cargo "+cargo+". "+s.opponents.map(o=>o.name+" "+o.cargo).join(" · ")+". "+(playerTop?(top.length?"Shared top cargo.":"You win the table."):"A bot wins the cargo contest."),playerTop?(top.length?s.bet:s.bet*2):0);return;
       }
       render();
     } else if(mode==="pig"){
-      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,youTotal:0,botTotal:0,turnScore:0,die:0,done:false};}
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,youTotal:0,botTotals:[0,0,0],turnScore:0,die:0,done:false};}
       if(b.dataset.act==="pigroll"){
         s.die=roll(1)[0];
-        if(s.die===1){s.turnScore=0;s.message="You rolled 1 and lost your turn. The house takes its turn.";}
-        else s.turnScore+=s.die;
+        if(s.die===1){
+          s.turnScore=0;
+          const winner=runPigBots();
+          if(winner>=0){finish(botNames[winner]+" reaches 100 and wins the race.",0);return;}
+          s.message="You rolled 1 and lost your turn. The bots take their turns.";
+        } else s.turnScore+=s.die;
         if(s.youTotal+s.turnScore>=100){finish("You reached 100. You win.",s.bet*2);return;}
-        const botTurn=()=>{let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}return score;};
-        if(s.die===1){s.botTotal+=botTurn();}
         render();
       } else if(b.dataset.act==="pigbank"){
         s.youTotal+=s.turnScore;s.turnScore=0;
         if(s.youTotal>=100){finish("You reached 100. You win.",s.bet*2);return;}
-        let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}
-        s.botTotal+=score;if(s.botTotal>=100){finish("Bot reached 100 first.",0);return;}
-        s.message="You banked. Bot turn scored "+score+". Your total "+s.youTotal+" · bot "+s.botTotal+".";
+        const winner=runPigBots();
+        if(winner>=0){finish(botNames[winner]+" reaches 100 first. Final bot scores: "+s.botTotals.join(" / "),0);return;}
+        s.message="You banked your points. Bot totals: "+s.botTotals.join(" / ")+". Your total: "+s.youTotal+".";
         render();
       } else render();
     } else if(mode==="shutbox"){
