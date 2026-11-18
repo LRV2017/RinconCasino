@@ -304,9 +304,9 @@ function mountDice(game,root,wallet){
   function botShip(){
     let dice=roll(5),held=[],cargo=0,need=[6,5,4];
     for(let turn=0;turn<3;turn++){
-      for(const required of need){const i=dice.indexOf(required);if(i>=0){held.push(required);dice.splice(i,1);need.shift();}}
+      while(need.length){const required=need[0],i=dice.indexOf(required);if(i<0)break;held.push(required);dice.splice(i,1);need.shift();}
       if(!need.length)break;
-      if(turn<2)dice=dice.concat(roll(5-held.length));
+      if(turn<2)dice=roll(5-held.length);
     }
     if(held.length===3)cargo=sum(dice);
     return {dice:held.concat(dice),held,cargo};
@@ -445,22 +445,18 @@ function mountDice(game,root,wallet){
     } else if(mode==="bunco"&&b.dataset.act==="bunco"){
       if(!s||s.done){const bet=start();if(bet===null)return;s={bet,target:1,turn:0,youScore:0,botScore:0,dice:[],done:false};}
       s.target=(s.turn%6)+1;
-      const your=[];
-      for(let i=0;i<3;i++){const d=roll(3);your.push(d);if(d.every(x=>x===s.target))s.youScore+=21;else s.youScore+=d.filter(x=>x===s.target).length*1;}
-      const bot=[];
-      for(let i=0;i<3;i++){const d=roll(3);bot.push(d);if(d.every(x=>x===s.target))s.botScore+=21;else s.botScore+=d.filter(x=>x===s.target).length*1;}
-      s.dice=your[2];s.turn++;
+      const your=roll(3),bot=roll(3);
+      const scoreRound=d=>d.every(x=>x===s.target)?21:d.filter(x=>x===s.target).length;
+      s.youScore+=scoreRound(your);s.botScore+=scoreRound(bot);s.dice=your;s.turn++;
       if(s.turn>=6){const diff=s.youScore-s.botScore;finish("Bunco round complete. You "+s.youScore+" · Bot "+s.botScore+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;}
       s.message="Round "+s.turn+" score: You "+s.youScore+" · Bot "+s.botScore+". Target was "+s.target+".";
       render();
     } else if(mode==="ship"&&b.dataset.act==="ship"){
       if(!s||s.done){const bet=start();if(bet===null)return;s={bet,dice:roll(5),holds:[],rolls:1,done:false};}
       else if(s.rolls<3){
-        const desired=[6,5,4],need=desired[s.holds.length];
-        const ix=s.dice.indexOf(need);
-        if(ix>=0&&!s.holds.includes(ix))s.holds.push(ix);
+        const desired=[6,5,4];
+        while(s.holds.length<3){const need=desired[s.holds.length],ix=s.dice.findIndex((d,i)=>d===need&&!s.holds.includes(i));if(ix<0)break;s.holds.push(ix);}
         if(s.holds.length===3){const cargo=s.dice.filter((d,i)=>!s.holds.includes(i)),bot=botShip(),botCargo=bot.cargo;s.cargo=sum(cargo);const diff=s.cargo-botCargo;finish("Your ship 6-5-4 cargo: "+s.cargo+". Bot cargo: "+botCargo+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;}
-        const remaining=s.dice.filter((d,i)=>!s.holds.includes(i)).length;
         s.dice=s.dice.map((d,i)=>s.holds.includes(i)?d:roll(1)[0]);s.rolls++;s.message="Locked "+s.holds.length+" of 3 ship pieces. Roll again.";
       } else {
         const cargo=s.holds.length===3?sum(s.dice.filter((d,i)=>!s.holds.includes(i))):0;
@@ -471,7 +467,7 @@ function mountDice(game,root,wallet){
       if(!s||s.done){const bet=start();if(bet===null)return;s={bet,youTotal:0,botTotal:0,turnScore:0,die:0,done:false};}
       if(b.dataset.act==="pigroll"){
         s.die=roll(1)[0];
-        if(s.die===1){s.turnScore=0;const botTurn=()=>{let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}s.botTotal+=score;};botTurn();s.message="You rolled 1 and lost your turn. Bot scored. New turn begins.";s.youTotal+=0;}
+        if(s.die===1){s.turnScore=0;s.message="You rolled 1 and lost your turn. The house takes its turn.";}
         else s.turnScore+=s.die;
         if(s.youTotal+s.turnScore>=100){finish("You reached 100. You win.",s.bet*2);return;}
         const botTurn=()=>{let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}return score;};
