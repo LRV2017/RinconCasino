@@ -208,7 +208,7 @@ export function mountPoker(game,root,wallet) {
       if(!Number.isInteger(amount)||amount<10){result("Minimum buy-in is 10 credits.","loss");return;}
       if(!wallet.charge(amount)){result("Not enough credits for that buy-in.","loss");return;}
       state.buyIn=amount;state.stack=1000;state.botStack=1000;state.cashed=false;startHand();
-    } else if(act==="next") {if(state.stack>0&&state.botStack>0){startHand();}else{state.stage="over";result("The table is finished. Cash out your remaining stack.","");render();}}
+    } else if(act==="next") {if(!state.cashed&&state.stack>0&&state.botStack>0){startHand();}else{state.stage="over";result("The table is finished. Cash out your remaining stack.","");render();}}
     else if(act==="cashout")cashout();
     else playerAction(act);
   }
