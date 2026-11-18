@@ -517,23 +517,60 @@ function mountDice(game,root,wallet){
       }
       render();
     } else if(mode==="liars"){
+      const actualCount=(face)=>s.mine.concat(...s.bots).filter(d=>d===face).length;
+      const faceRank=face=>face===1?6:face-1;
+      const probabilityAtLeast=(known,face,totalNeeded)=>{
+        const needed=totalNeeded-s.mine.filter(d=>d===face).length;
+        if(needed<=0)return 1;if(needed>15)return 0;
+        let probability=0;
+        for(let k=needed;k<=15;k++){
+          let choose=1;for(let j=1;j<=k;j++)choose=choose*(16-j)/j;
+          probability+=choose*Math.pow(1/6,k)*Math.pow(5/6,15-k);
+        }
+        return Math.max(0,Math.min(1,probability));
+      };
+      const resolveChallenge=(challenger)=>{
+        const bid=s.lastBid,actual=actualCount(bid.face),truth=actual>=bid.count;
+        const bidder=bid.by,winner=truth?bidder:challenger;
+        const winnerName=winner===0?"You":botNames[winner-1];
+        const resultText="Reveal: "+actual+" of 20 dice show "+bid.face+". "+(truth?"The bid was true. ":"The bid was a bluff. ")+winnerName+" wins the challenge.";
+        finish(resultText,winner===0?s.bet*2:0);return true;
+      };
+      const botsRespond=()=>{
+        const decisions=[];
+        for(let i=0;i<3;i++){
+          const seat=i+1,dice=s.bots[i],bid=s.lastBid;
+          const own=dice.filter(d=>d===bid.face).length;
+          const unseenExpected=15/6;
+          const truthProbability=probabilityAtLeast(dice,bid.face,bid.count);
+          const challengeThreshold=[.2,.28,.16][i];
+          if(truthProbability<challengeThreshold){
+            decisions.push(botNames[i]+" challenges");
+            s.lastAction=decisions.join(" · ");
+            resolveChallenge(seat);return true;
+          }
+          const rank=faceRank(bid.face);
+          let next={count:bid.count,face:rank>=5?2:bid.face+1};
+          if(next.face===2&&rank>=5)next.count=bid.count+1;
+          if(own>=2&&Math.random()<([.72,.5,.82][i]))next={count:bid.count+1,face:bid.face};
+          if(next.count>20){decisions.push(botNames[i]+" passes the challenge");resolveChallenge(seat);return true;}
+          s.lastBid={...next,by:seat};
+          decisions.push(botNames[i]+" bids "+next.count+" of "+next.face);
+        }
+        s.message=decisions.join(" · ")+" · Your turn. Raise or challenge.";
+        return false;
+      };
       if(b.dataset.act==="bid"){
         if(!s||s.done){const bet=start();if(bet===null)return;s={bet,mine:roll(5),bots:[roll(5),roll(5),roll(5)],lastBid:null,done:false};}
         const count=Math.max(1,Math.min(20,Number(root.querySelector("#bidCount").value||1))),face=Number(root.querySelector("#bidFace").value||2);
-        if(s.lastBid&&(count<s.lastBid.count||count===s.lastBid.count&&face<=s.lastBid.face)){c.status("Your bid must increase quantity or face value.","loss");return;}
-        s.lastBid={count,face,by:"you"};
-        const own=s.bots[0].filter(d=>d===face).length,expected=own+15/6;
-        if(count>expected+1.5){
-          const actual=s.mine.concat(...s.bots).filter(d=>d===face).length;
-          finish("House challenges. There are "+actual+" dice showing "+face+". "+(actual>=count?"Your bid was correct.":"Your bid was too high."),actual>=count?s.bet*2:0);return;
-        }
-        const nextFace=face===6?1:face+1;
-        const nextCount=count+(nextFace===1?1:0);
-        s.lastBid={count:nextCount,face:nextFace,by:"bot"};
-        s.message="The bot raises to "+nextCount+" of "+nextFace+". Raise again or challenge.";
+        const validFace=[1,2,3,4,5,6].includes(face);
+        const rank=faceRank(face);
+        const raises=s.lastBid&&(count>s.lastBid.count||count===s.lastBid.count&&rank>faceRank(s.lastBid.face));
+        if(!validFace||s.lastBid&&!raises){c.status("Your bid must increase the quantity or the face value.","loss");return;}
+        s.lastBid={count,face,by:0};
+        if(botsRespond())return;
       } else if(b.dataset.act==="challenge"&&s&&!s.done&&s.lastBid){
-        const actual=s.mine.concat(...s.bots).filter(d=>d===s.lastBid.face).length,truth=actual>=s.lastBid.count;
-        finish("Reveal: "+actual+" dice show "+s.lastBid.face+". "+(truth?"The bid was true.":"The bid was a bluff."),truth?s.bet*2:0);return;
+        resolveChallenge(0);return;
       }
       render();
     } else if(mode==="ceelo"&&b.dataset.act==="ceelo"){
