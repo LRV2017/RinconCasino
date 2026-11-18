@@ -65,6 +65,7 @@ function exercise(game,root){
     else if(game.mode==="checkers"){root.click({cell:"5,1"});root.click({cell:"4,0"});}
     else if(game.mode==="nim")root.click({pile:"0",remove:"1"});
     else if(game.mode==="dots")root.click({dot:"h",r:"0",c:"0"});
+    else if(game.mode==="chess"){root.click({cell:"6,4"});root.click({cell:"4,4"});}
     else assert.fail(game.name+" has an unsupported board mode "+game.mode);
   } else if(game.engine==="wheel"){
     const actions={coin:"flip",plinko:"drop",limbo:"limbo",crash:"crash",mines:"startmines",hilo:"starthilo",wheel:"wheel"};
