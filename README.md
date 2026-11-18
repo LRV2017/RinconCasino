@@ -20,7 +20,7 @@ The `mega-casino-rebuild` branch replaces the original single-file prototype wit
 
 The catalog contains 240 selectable titles across roulette, blackjack, baccarat, poker, video poker, slots, keno, dice, strategy/board games, arcade/wheels, scratch cards and number draws.
 
-The 240 entries are themed tables and variants backed by a smaller set of shared game-family engines; they are not 240 separately written game implementations. Texas Hold'em and Pot-Limit Omaha use card ranking and local opponent decisions. Board bots use tactical search or game-specific heuristics for tic-tac-toe, Connect Four, Reversi, Gomoku, Battleship, checkers, Nim and Dots & Boxes. Dice tables include Craps, Sic Bo, Yahtzee-style dice, Farkle, Liar's Dice, Cee-lo, Bunco, Ship-Captain-Crew, Pig, Shut the Box and dice poker.
+The 240 entries are themed tables and variants backed by a smaller set of shared game-family engines; they are not 240 separately written game implementations. Texas Hold'em and Pot-Limit Omaha use card ranking and local opponent decisions. Board bots use tactical search or game-specific heuristics for tic-tac-toe, Connect Four, Reversi, Gomoku, Battleship, checkers, Nim, Dots & Boxes and Chess (including castling, en passant and checkmate). Dice tables include Craps, Sic Bo, Yahtzee-style dice, Farkle, Liar's Dice, Cee-lo, Bunco, Ship-Captain-Crew, Pig, Shut the Box and dice poker.
 
 ## Run locally
 
