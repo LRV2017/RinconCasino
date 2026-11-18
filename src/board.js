@@ -1,4 +1,5 @@
 import { mountChess } from "./chess.js";
+import { mountArena3D } from "./arena3d.js";
 function stakeBar(){
   return '<div class="bet-controls"><label for="stake">MATCH STAKE</label><input class="bet-input" id="stake" type="number" min="10" step="10" value="25"><span class="tiny-note">Winner earns 2× the stake</span><button class="game-action primary" data-act="start">Start match</button></div>';
 }
@@ -165,7 +166,7 @@ function dotsSafeMove(s){
 function mountBoard(game,root,wallet){
   if(game.mode==="chess")return mountChess(game,root,wallet);
   const mode=game.mode||"ttt",isTtt=mode==="ttt",isC4=mode==="connect4",isRev=mode==="reversi",isGomoku=mode==="gomoku",isShips=mode==="battleship",isCheck=mode==="checkers",isNim=mode==="nim",isDots=mode==="dots";
-  let s=null,stake=0,done=false,status="";
+  let s=null,stake=0,done=false,status="",arena=null;
   const setResult=(m,t)=>{status=m;const el=root.querySelector("#boardResult");if(el){el.textContent=m;el.className="result-banner"+(t?" "+t:"");}};
   const begin=()=>{
     const amount=Number(root.querySelector("#stake")?.value||25);if(!Number.isInteger(amount)||amount<10){setResult("Choose a whole-number match stake of at least 10.","loss");return;}if(!wallet.charge(amount)){setResult("You do not have enough credits for that stake.","loss");return;}stake=amount;done=false;
@@ -244,9 +245,32 @@ function playGomoku(r,c){
     s[m.type][m.r][m.c]=true;let botScored=0;for(let rr=0;rr<3;rr++)for(let cc=0;cc<3;cc++)if(!s.boxes[rr][cc]&&s.h[rr][cc]&&s.h[rr+1][cc]&&s.v[rr][cc]&&s.v[rr][cc+1]){s.boxes[rr][cc]=2;s.scoreBot++;botScored++;}
     if(s.scoreYou+s.scoreBot===9){end(s.scoreYou>s.scoreBot?"you":s.scoreYou<s.scoreBot?"bot":"tie","Final score — you "+s.scoreYou+", bot "+s.scoreBot+".");return;}render();
   }
+  function sceneConfig(){
+    let grid=null,piles=null,players=[{name:"You",human:true},{name:"HAL",status:"CPU OPPONENT"}],youScore,botScore;
+    if(isTtt)grid=s?s.board:Array(9).fill("").reduce((a,_,i)=>{if(i%3===0)a.push(["","",""]);return a;},[]);
+    if(isC4)grid=s?s.board:Array.from({length:6},()=>Array(7).fill(""));
+    if(isRev)grid=s?s.board:Array.from({length:8},()=>Array(8).fill(""));
+    if(isGomoku)grid=s?s.board:Array.from({length:15},()=>Array(15).fill(""));
+    if(isCheck)grid=s?s.board:Array.from({length:8},(_,r)=>Array.from({length:8},(_,col)=>(r+col)%2?(r<3?"b":r>4?"r":""):""));
+    if(isShips){
+      grid=Array.from({length:10},()=>Array(10).fill(""));
+      (s?.youShots||[]).forEach(p=>{grid[p.r][p.c]=p.hit?"X":"O";});
+    }
+    if(isNim)piles=s?s.piles:[3,4,5,7];
+    if(isDots)grid=s?s.boxes.map(row=>row.map(v=>v===1?"X":v===2?"O":"")):Array.from({length:3},()=>Array(3).fill(""));
+    if(isRev&&s){youScore=s.board.flat().filter(v=>v==="X").length;botScore=s.board.flat().filter(v=>v==="O").length;}
+    if(isDots&&s){youScore=s.scoreYou;botScore=s.scoreBot;}
+    if(isNim&&s){youScore=0;botScore=0;}
+    players=[{name:"You",human:true,score:youScore,status:s?"YOUR SIDE":"PLAYER"}, {name:"HAL",score:botScore,status:s?"CPU THINKING":"LOCAL BOT"}];
+    return {kind:"board",title:game.name,players,boardData:grid?{mode,grid}:null,piles,centerText:!s?"LOCAL BOT MATCH":done?"MATCH COMPLETE":(status||"YOUR MOVE").slice(0,32)};
+  }
+  function syncArena(){
+    const next=sceneConfig();
+    if(!arena)arena=mountArena3D(root,next);else arena.update(next);
+  }
   function render(){
     let content="";
-    if(!s){content='<div class="game-intro"><div class="game-icon-large">'+game.icon+'</div><h3>'+game.name+'</h3><p>Challenge a local opponent. The bot uses the rules of this game, tactical move selection and search where appropriate. There is no online multiplayer connection in this release.</p></div>'+stakeBar()+'<div class="result-banner">Start a match to take your seat.</div>';root.innerHTML=content;return;}
+    if(!s){content='<div class="game-intro"><div class="game-icon-large">'+game.icon+'</div><h3>'+game.name+'</h3><p>Challenge a local opponent. The bot uses the rules of this game, tactical move selection and search where appropriate. There is no online multiplayer connection in this release.</p></div><section class="arena3d-stage" aria-label="Interactive 3D strategy board"></section>'+stakeBar()+'<div class="result-banner">Start a match to take your seat.</div>';root.innerHTML=content;syncArena();return;}
     if(isTtt){
       content='<div class="tiny-note">YOU ARE X · BOT IS O · PERFECT-MOVE BOT</div><div class="board-grid" style="grid-template-columns:repeat(3,48px)">'+s.board.map((v,i)=>'<button class="board-cell" data-pos="'+i+'" '+(v||done?'disabled':'')+'>'+v+'</button>').join("")+'</div>';
     } else if(isC4){
@@ -264,7 +288,8 @@ function playGomoku(r,c){
     } else {
       content='<div class="tiny-note">DOTS & BOXES · COMPLETE A BOX TO SCORE AND PLAY AGAIN</div><div class="board-grid" style="grid-template-columns:repeat(7,39px);gap:3px">'+Array.from({length:7},(_,i)=>Array.from({length:7},(_,j)=>{if(i%2===0&&j%2===0)return '<span style="width:7px;height:7px;border-radius:50%;background:#d6c58b;margin:auto"></span>';if(i%2===0)return '<button class="game-action" style="width:39px;height:9px;padding:0" data-dot="h" data-r="'+Math.floor(i/2)+'" data-c="'+Math.floor(j/2)+'" '+(s.h[Math.floor(i/2)][Math.floor(j/2)]||done?'disabled':'')+'></button>';if(j%2===0)return '<button class="game-action" style="width:9px;height:39px;padding:0" data-dot="v" data-r="'+Math.floor(i/2)+'" data-c="'+Math.floor(j/2)+'" '+(s.v[Math.floor(i/2)][Math.floor(j/2)]||done?'disabled':'')+'></button>';const box=s.boxes[Math.floor(i/2)][Math.floor(j/2)];return '<span style="display:grid;place-items:center;width:39px;height:39px;background:'+(box===1?"#697b4c":box===2?"#786b4a":"transparent")+';font-size:10px">'+(box===1?"YOU":box===2?"BOT":"")+'</span>';}).join("")).join("")+'</div><div class="tiny-note">SCORE · YOU '+s.scoreYou+' — BOT '+s.scoreBot+'</div>';
     }
-    root.innerHTML='<div class="game-intro"><div class="game-icon-large">'+game.icon+'</div><h3>'+game.name+'</h3><p>Local head-to-head match. The CPU uses search, legal-move checks, position evaluation or probability-aware targeting depending on the game.</p></div>'+stakeBar()+content+'<div id="boardResult" class="result-banner">'+(status||"Your move.")+'</div>';
+    root.innerHTML='<div class="game-intro"><div class="game-icon-large">'+game.icon+'</div><h3>'+game.name+'</h3><p>Local head-to-head match. The CPU uses search, legal-move checks, position evaluation or probability-aware targeting depending on the game.</p></div><section class="arena3d-stage" aria-label="Interactive 3D strategy board"></section>'+stakeBar()+content+'<div id="boardResult" class="result-banner">'+(status||"Your move.")+'</div>';
+    syncArena();
   }
   function click(e){
     const b=e.target.closest("[data-act],[data-pos],[data-col],[data-cell],[data-pile],[data-dot]");if(!b)return;
@@ -280,6 +305,6 @@ function playGomoku(r,c){
     else if(b.dataset.dot)playDots(b.dataset.dot,Number(b.dataset.r),Number(b.dataset.c));
   }
   root.addEventListener("click",click);render();
-  return {close:()=>{if(stake&&!done){done=true;wallet.settle(stake,0,game.name);}},destroy:()=>root.removeEventListener("click",click)};
+  return {close:()=>{if(stake&&!done){done=true;wallet.settle(stake,0,game.name);}arena?.destroy();},destroy:()=>{root.removeEventListener("click",click);arena?.destroy();}};
 }
 export { mountBoard };
