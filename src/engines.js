@@ -557,7 +557,7 @@ function mountScratch(game,root,wallet){
     else if(s&&!s.done&&b.dataset.act==="reveal"){s.revealed=Array.from({length:9},(_,i)=>i);finish();}
   });
   function finish(){const counts={};s.cells.forEach(x=>counts[x]=(counts[x]||0)+1);const max=Math.max(...Object.values(counts)),sym=Object.keys(counts).find(x=>counts[x]===max),mult=max>=3?(sym==="7️⃣"?50:sym==="💎"?20:sym==="👑"?10:3):0;s.done=true;s.win=mult>1;s.message=mult?"Three "+sym+" symbols — "+mult+"× payout.":"No three-of-a-kind. Better luck next card.";c.settle(s.bet,s.bet*mult,s.message);render();}
-  render();return {close:()=>{},destroy:off};
+  render();return {close:()=>{if(s&&!s.done&&s.bet)wallet.settle(s.bet,0,game.name);},destroy:off};
 }
 function mountDraw(game,root,wallet){
   const c=common(game,root,wallet);let picks=new Set([4,12,18,27,35,46]),result=null;
