@@ -23,7 +23,7 @@ const groups = [
     "Craps","Sic Bo","Yahtzee","Farkle","Liar's Dice","Cee-lo","Bunco","Ship, Captain, Crew","Pig","Shut the Box","Craps — Hazard Table","Craps — Grand Table","High-Low Dice","High-Low Dice — Classic","Dice Poker","Cee-lo — House Table","Farkle — Hot Dice","Farkle — Ten Thousand","Yahtzee — House Table","Sic Bo — Grand Table"
   ]],
   ["Strategy & Bots","board","♟","strategy",[
-    "Tic-Tac-Toe","Tic-Tac-Toe — Expert Bot","Connect Four","Connect Four — Expert Bot","Reversi","Othello","Gomoku","Five in a Row","Battleship","Battleship — Classic Fleet","Checkers","Checkers — House Match","Nim","Nim — Classic Piles","Dots and Boxes","Dots and Boxes — Expert Bot","Dots and Boxes — Classic","Four-in-a-Row Blitz","Reversi — Classic Table","Rincon Strategy Arena"
+    "Tic-Tac-Toe","Tic-Tac-Toe — Expert Bot","Connect Four","Connect Four — Expert Bot","Reversi","Othello","Gomoku","Five in a Row","Battleship","Battleship — Classic Fleet","Checkers","Checkers — House Match","Nim","Nim — Classic Piles","Dots and Boxes","Dots and Boxes — Expert Bot","Dots and Boxes — Classic","Four-in-a-Row Blitz","Reversi — Classic Table","Chess — Rincon Bot Arena"
   ]],
   ["Arcade & Wheels","wheel","◎","arcade",[
     "Coin Flip","Double or Nothing","Plinko","Lucky Plinko","Limbo","Crash Run","Mines","Treasure Grid","Hi-Lo Cards","Wheel of Fortune","Big Six Wheel","Prize Wheel","Multiplier Wheel","Color Wheel","Lucky 7 Wheel","High Roller Wheel","Rocket Cashout","Safecracker","Golden Ladder","Rincon Spin"]],
@@ -58,7 +58,7 @@ for (const group of groups) {
     const id = engine + "-" + String(index + 1).padStart(2,"0");
     let mode = "classic";
     if (engine === "dice") mode = ["craps","sicbo","yahtzee","farkle","liars","ceelo","bunco","ship","pig","shutbox","craps","craps","highlow","highlow","dice-poker","ceelo","farkle","farkle","yahtzee","sicbo"][index];
-    if (engine === "board") mode = ["ttt","ttt","connect4","connect4","reversi","reversi","gomoku","gomoku","battleship","battleship","checkers","checkers","nim","nim","dots","dots","dots","connect4","reversi","connect4"][index];
+    if (engine === "board") mode = ["ttt","ttt","connect4","connect4","reversi","reversi","gomoku","gomoku","battleship","battleship","checkers","checkers","nim","nim","dots","dots","dots","connect4","reversi","chess"][index];
     if (engine === "wheel") mode = ["coin","coin","plinko","plinko","limbo","crash","mines","mines","hilo","wheel","wheel","wheel","wheel","wheel","coin","wheel","crash","mines","limbo","wheel"][index];
     const item = {
       id, number:serial++, name, category, engine, mode, kind, icon:icons[engine][index%icons[engine].length],
