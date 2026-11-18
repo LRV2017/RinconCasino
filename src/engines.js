@@ -90,16 +90,15 @@ function mountRoulette(game,root,wallet){
       const red=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
       const color=pocket===0?"green":pocket===37?"green":red.includes(pocket)?"red":"black";
       let won=false,mult=0,desc="No win. "+(pocket===37?"00":pocket)+" "+color+".";
+      const french=game.name.toLowerCase().includes("french")||game.name.toLowerCase().includes("la partage");
       if(pick==="number"&&last&&String(last.pick)===(pocket===37?"00":String(pocket))){won=true;mult=36;desc="Straight-up hit! "+(pocket===37?"00":pocket)+" pays 35:1.";}
       else if(pick==="red"||pick==="black"){won=pick===color;mult=2;}
       else if(pick==="green"){won=color==="green";mult=american?18:36;}
-      const french=game.name.toLowerCase().includes("french")||game.name.toLowerCase().includes("la partage")||game.name.toLowerCase().includes("en prison");
-      const partage=french&&color==="green"&&["red","black","odd","even","low","high"].includes(pick);
-      if(partage){payout=won?bet*2:0;}
       else if(pick==="odd"||pick==="even"){won=pocket!==0&&pocket!==37&&(pick==="odd"?pocket%2===1:pocket%2===0);mult=2;}
       else if(pick==="low"||pick==="high"){won=pocket>=1&&pocket<=36&&(pick==="low"?pocket<=18:pocket>=19);mult=2;}
-      if(won)desc=(pocket===37?"00":pocket)+" "+color+" — winning bet!";
-      const payout=won?bet*mult:0;last={pick:null,message:"Wheel result: "+desc,win:won};c.settle(bet,payout,"Wheel result: "+desc);render();
+      let payout=won?bet*mult:0;
+      if(french&&color==="green"&&["red","black","odd","even","low","high"].includes(pick)){payout=Math.floor(bet/2);desc="Zero landed. La Partage returns half your even-money stake.";}
+      if(won)desc=(pocket===37?"00":pocket)+" "+color+" — winning bet!";last={pick:null,message:"Wheel result: "+desc,win:won};c.settle(bet,payout,"Wheel result: "+desc);render();
     }
   });
   render();return {close:()=>{},destroy:click};
@@ -545,7 +544,7 @@ function mountWheel(game,root,wallet){
       } else if(b.dataset.act==="cash"&&s&&!s.done){endRound(s.bet,s.mult,"Cashed out at "+s.mult.toFixed(2)+"×.");}
     } else if(mode==="wheel"&&b.dataset.act==="wheel"){const bet=c.charge();if(bet===null)return;const choices=[0,0,.5,1,1.5,2,3,5,10],mult=choices[Math.floor(Math.random()*choices.length)];s={mult,message:mult?"Wheel landed on "+mult+"×.":"Wheel landed on zero.",win:mult>1};endRound(bet,mult,s.message);}
   });
-  render();return {close:()=>{if(timer){clearInterval(timer);timer=null;}if(s&&s.running){s.running=false;wallet.settle(s.bet,0,game.name);}},destroy:()=>{off();if(timer)clearInterval(timer);}};
+  render();return {close:()=>{if(timer){clearInterval(timer);timer=null;}if(s&&s.running){s.running=false;wallet.settle(s.bet,0,game.name);s.done=true;}else if(s&&!s.done&&s.bet){wallet.settle(s.bet,0,game.name);s.done=true;}},destroy:()=>{off();if(timer)clearInterval(timer);}};
 }
 function mountScratch(game,root,wallet){
   const c=common(game,root,wallet);let s=null;
