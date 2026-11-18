@@ -1,4 +1,5 @@
 const SUITS = ["♠","♥","♦","♣"];
+import { mountArena3D } from "./arena3d.js";
 const RANKS = "23456789TJQKA";
 function shuffledDeck() {
   const deck = [];
@@ -94,7 +95,7 @@ export function mountPoker(game,root,wallet) {
     currentBet:0,minRaise:10,currentSeat:-1,pot:0,showCards:false,
     last:"Buy in to join the table.",cashed:false,net:0
   };
-  let status="";
+  let status="",arena=null;
   const you=()=>state.seats[0];
   const live=()=>state.seats.filter(s=>!s.folded);
   const active=()=>state.seats.filter(s=>!s.folded&&!s.allIn);
@@ -141,6 +142,7 @@ export function mountPoker(game,root,wallet) {
       ((state.stage==="showdown"||state.stage==="over")&&!state.cashed?'<button class="game-action primary" data-act="next">Next hand</button>':'')+
       (state.buyIn&&!state.cashed?'<button class="game-action secondary" data-act="cashout">Cash out</button>':'')+
       '</div>'+
+      '<section class="arena3d-stage" aria-label="Interactive 3D poker table"></section>'+
       '<div class="table-felt"><div class="table-seats poker-seats">'+seats+'</div><div class="tiny-note">POT · '+(state.stage==="action"?potTotal():0)+' CHIPS · '+(streetNames[state.street]||"WAITING")+'</div>'+
       '<div class="tiny-note">COMMUNITY CARDS</div><div class="playing-cards">'+(boardCards||'<span class="muted">The flop has not been dealt.</span>')+'</div>'+
       '<div class="tiny-note">YOUR HOLE CARDS</div><div class="playing-cards">'+(player&&player.hole.length?player.hole.map(c=>cardMarkup(c,false)).join(""):"")+'</div>'+
@@ -152,6 +154,15 @@ export function mountPoker(game,root,wallet) {
       '<button class="game-action secondary" data-act="raise" '+(!actionAllowed||active().length<2?"disabled":"")+'>Raise</button>'+
       '<button class="game-action secondary" data-act="allin" '+(!actionAllowed?"disabled":"")+'>All-in</button>'+
       '</div><div id="pokerResult" class="result-banner">'+(status||state.last)+'</div>';
+    const scenePlayers=state.seats.length?state.seats.map(seat=>({name:seat.name,human:seat.isYou,stack:seat.stack,status:seat.folded?"FOLDED":seat.allIn?"ALL IN":seat.acted?"WAITING":"IN HAND"})):[{name:"YOU",human:true},...BOT_PROFILES.map(p=>({name:p.name}))];
+    const sceneConfig={
+      kind:"poker",title:game.name,pot:state.stage==="action"?potTotal():0,
+      players:scenePlayers,
+      board:state.board.map(card=>cardText(card)),
+      playerCards:you()?.hole.map(card=>cardText(card))||[],
+      centerText:state.stage==="idle"?"JOIN TABLE":state.stage==="action"?"BETTING · "+(state.currentSeat===0?"YOUR TURN":"BOTS THINKING"):state.stage.toUpperCase()
+    };
+    if(!arena)arena=mountArena3D(root,sceneConfig);else arena.update(sceneConfig);
   }
   function findNextActor(){
     for(let step=1;step<=state.seats.length;step++){
@@ -358,5 +369,5 @@ export function mountPoker(game,root,wallet) {
   }
   root.addEventListener("click",click);
   render();
-  return {close:cashout,destroy:()=>root.removeEventListener("click",click)};
+  return {close:cashout,destroy:()=>{root.removeEventListener("click",click);arena?.destroy();}};
 }
