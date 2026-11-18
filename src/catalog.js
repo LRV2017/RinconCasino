@@ -1,84 +1,67 @@
-const groups = [
-  ["Roulette","roulette","◉","table",[
-    "European Roulette","American Roulette","French Roulette","French Roulette — La Partage","French Roulette — La Partage Table","Single Zero Roulette","Double Zero Roulette","Classic Roulette — Gold Room","Mini Table Roulette","Speed Table Roulette","Grand Roulette","VIP Roulette","Classic Roulette","Golden Wheel Roulette","Midnight Roulette","Royal Roulette","Casino Royale Wheel","High Roller Roulette","Zero Edge Roulette","Rincon Roulette"
-  ]],
-  ["Blackjack","blackjack","♠","table",[
-    "Blackjack — Classic","Atlantic City Blackjack","Blackjack — European Room","Vegas Strip Blackjack","Blackjack — Gold Room","Blackjack — Velvet Room","Blackjack — The Garden","Blackjack — Night Lounge","Blackjack — High Stakes","Blackjack — Classic II","Blackjack — VIP Room","Blackjack — The Terrace","Blackjack — Silver Room","Blackjack — Midnight","Blackjack — Royal Table","Blackjack — Rincon Room","Blackjack — Speed Table","Blackjack — House Select","Blackjack — Private Room","Blackjack — Grand Table"
-  ]],
-  ["Baccarat","baccarat","♦","table",[
-    "Punto Banco — Classic","Punto Banco — Mini Table","Punto Banco — Speed Table","Punto Banco — Gold Room","Punto Banco — Silver Room","Punto Banco — VIP Table","Punto Banco — Night Lounge","Punto Banco — Royal Room","Punto Banco — Grand Table","Punto Banco — Private Room","Punto Banco — The Terrace","Punto Banco — Garden Table","Punto Banco — High Stakes","Punto Banco — Classic II","Punto Banco — Rincon Room","Punto Banco — Velvet Room","Punto Banco — Midnight","Punto Banco — House Select","Punto Banco — Premier","Punto Banco — Grand Salon"
-  ]],
-  ["Poker Tables","poker","♣","table",[
-    "Texas Hold'em","Texas Hold'em — Heads-Up","Texas Hold'em — Deep Stack","Pot-Limit Omaha","Texas Hold'em — Turbo Table","Texas Hold'em — Classic Table","Texas Hold'em — Night Table","Texas Hold'em — Gold Room","Texas Hold'em — Silver Room","Texas Hold'em — VIP Table","Texas Hold'em — Short Session","Texas Hold'em — High Stakes","Texas Hold'em — Rincon Room","Texas Hold'em — Grand Table","Texas Hold'em — Private Table","Texas Hold'em — 6-Max Seat","Texas Hold'em — The Terrace","Texas Hold'em — Velvet Room","Texas Hold'em — Midnight","Texas Hold'em — House Select"
-  ]],
-  ["Video Poker","videopoker","▣","arcade",[
-    "Jacks or Better","Jacks or Better — Gold Room","Jacks or Better — Silver Room","Jacks or Better — Classic II","Deuces Wild","Jacks or Better — VIP Table","Jacks or Better — The Terrace","Jacks or Better — Night Lounge","Jacks or Better — Garden Table","Jacks or Better — Classic Table","Jacks or Better — High Stakes","Jacks or Better — Rincon Room","Jacks or Better — Grand Table","Jacks or Better — Velvet Room","Jacks or Better — Midnight","Jacks or Better — Private Table","Jacks or Better — Premier","Jacks or Better — House Select","Jacks or Better — Royal Room","Jacks or Better — Speed Table"
-  ]],
-  ["Slots","slots","✦","arcade",[
-    "Golden Sevens","Midnight Riches","Emerald Fortune","Lucky Lanterns","Royal Reels","Desert Gold","Neon Nights","Pearl Palace","Wild Safari","Moonlight Millions","Temple of Fortune","Cash Cascade","Dragon's Hoard","Clover Club","Pharaoh's Fortune","Crystal Cavern","Velvet Vault","Starburst Lane","Rincon Reels","Jackpot Garden"]],
-  ["Keno","keno","✳","arcade",[
-    "Classic Keno","Quick Keno","Keno — 10 Spot Table","Keno — 8 Spot Table","Corner Keno","High Five Keno","Super Keno","Double Keno","Power Keno","Lucky Keno","Gold Keno","Rush Keno","80-Ball Keno","Caveman Keno","Diamond Keno","Fortune Keno","Keno — Short Table","Keno — Five Spot","Keno — Seven Spot","Rincon Keno"
-  ]],
-  ["Dice Games","dice","⚄","table",[
-    "Craps","Sic Bo","Yahtzee","Farkle","Liar's Dice","Cee-lo","Bunco","Ship, Captain, Crew","Pig","Shut the Box","Craps — Hazard Table","Craps — Grand Table","High-Low Dice","High-Low Dice — Classic","Dice Poker","Cee-lo — House Table","Farkle — Hot Dice","Farkle — Ten Thousand","Yahtzee — House Table","Sic Bo — Grand Table"
-  ]],
-  ["Strategy & Bots","board","♟","strategy",[
-    "Tic-Tac-Toe","Tic-Tac-Toe — Expert Bot","Connect Four","Connect Four — Expert Bot","Reversi","Othello","Gomoku","Five in a Row","Battleship","Battleship — Classic Fleet","Checkers","Checkers — House Match","Nim","Nim — Classic Piles","Dots and Boxes","Dots and Boxes — Expert Bot","Dots and Boxes — Classic","Four-in-a-Row Blitz","Reversi — Classic Table","Chess — Rincon Bot Arena"
-  ]],
-  ["Arcade & Wheels","wheel","◎","arcade",[
-    "Coin Flip","Double or Nothing","Plinko","Lucky Plinko","Limbo","Crash Run","Mines","Treasure Grid","Hi-Lo Cards","Wheel of Fortune","Big Six Wheel","Prize Wheel","Multiplier Wheel","Color Wheel","Lucky 7 Wheel","High Roller Wheel","Rocket Cashout","Safecracker","Golden Ladder","Rincon Spin"]],
-  ["Scratch Cards","scratch","▤","arcade",[
-    "Lucky Clover Scratch","Golden Ticket","Triple Sevens Scratch","Diamond Mine","Treasure Chest","Cash Stack","Royal Flush Scratch","Lucky Horseshoe","Fortune Cookie","Emerald Scratch","Neon Jackpot","Wild West Gold","Dragon Scratch","Star Prize","Moon Money","Crown Jewels","Mystery Vault","Lucky Number 9","Double Diamond","Rincon Scratch"]],
-  ["Number Draws","draw","▦","arcade",[
-    "Rincon 6/49","Daily 6/49","Lucky 6/49","Quick Pick 6/49","Golden 6/49","Royal 6/49","Midnight 6/49","Grand 6/49","House 6/49","The Terrace 6/49","VIP 6/49","Silver 6/49","Gold 6/49","Velvet 6/49","Premier 6/49","Private 6/49","Fortune 6/49","Rincon 6/49 — Night Draw","Rincon 6/49 — Grand Draw","Rincon 6/49 — Classic Draw"
-  ]]
-];
-const descriptions = {
-  roulette:"Choose a pocket, color or outside bet. French La Partage returns half an even-money stake on zero.",
-  blackjack:"Play your hand against the dealer. Get closer to 21 without going over.",
-  baccarat:"Choose Player, Banker or Tie, then follow the classic third-card rules.",
-  poker:"Play Texas Hold’em or Pot-Limit Omaha against a local house bot. No online seats yet.",
-  videopoker:"Choose which cards to hold, draw replacements and beat the pay table.",
-  slots:"Spin the reels, match symbols on active lines and collect the posted payout.",
-  keno:"Pick your lucky numbers, draw the balls and compare your hits to the pay table.",
-  dice:"Roll against the table or local opponents. Rules depend on the selected dice game.",
-  board:"Challenge a local bot. The opponent uses game-specific search and tactical scoring.",
-  wheel:"Choose a risk, make your call and let the wheel or multiplier resolve.",
-  scratch:"Reveal the card, find matching symbols and check the printed prize rules.",
-  draw:"Select numbers, enter the draw and see how many match."
-};
-const icons = {
-  roulette:["◉","◎","◌"],blackjack:["♠","♥","♦","♣"],baccarat:["♦","♜","♛"],poker:["♣","♠","♥"],videopoker:["▣","♠","★"],slots:["✦","♛","7","♦","☼"],keno:["✳","▦","✧"],dice:["⚄","⚅","⚂"],board:["♟","✕","●","▦"],wheel:["◎","◉","↗","◇"],scratch:["▤","✦","♦"],draw:["▦","✳","◈"]
-};
-const gameCatalog = [];
-let serial = 1;
-for (const group of groups) {
-  const category = group[0], engine = group[1], icon = group[2], kind = group[3], names = group[4];
-  names.forEach((name, index) => {
-    const id = engine + "-" + String(index + 1).padStart(2,"0");
-    let mode = "classic";
-    if (engine === "dice") mode = ["craps","sicbo","yahtzee","farkle","liars","ceelo","bunco","ship","pig","shutbox","craps","craps","highlow","highlow","dice-poker","ceelo","farkle","farkle","yahtzee","sicbo"][index];
-    if (engine === "board") mode = ["ttt","ttt","connect4","connect4","reversi","reversi","gomoku","gomoku","battleship","battleship","checkers","checkers","nim","nim","dots","dots","dots","connect4","reversi","chess"][index];
-    if (engine === "wheel") mode = ["coin","coin","plinko","plinko","limbo","crash","mines","mines","hilo","wheel","wheel","wheel","wheel","wheel","coin","wheel","crash","mines","limbo","wheel"][index];
-    const item = {
-      id, number:serial++, name, category, engine, mode, kind, icon:icons[engine][index%icons[engine].length],
-      description:descriptions[engine],
-      featured: serial <= 7 || [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].includes(index+1) && index < 3,
-      tags:[category.toLowerCase(),engine,mode],
-      rules:engine === "roulette" ? (index===1 || index===6 ? "American double-zero wheel: 0 and 00 are green. Straight-up bets pay 35 to 1; red/black and even-money outside bets pay 1 to 1." : "European single-zero wheel: 0 is green. Straight-up bets pay 35 to 1; red/black and even-money outside bets pay 1 to 1.") :
-        engine === "blackjack" ? "Dealer follows the table's posted soft-17 rule. Beat the dealer without busting. Natural blackjack pays 3:2 unless this table says otherwise." :
-        engine === "baccarat" ? "The hand closest to 9 wins. Player and Banker draw according to standard baccarat third-card rules. Banker wins pay 0.95:1 after commission; Tie pays 8:1." :
-        engine === "poker" ? "Local bot table only. Betting rounds, folds, calls, raises, blinds and showdown are simulated on this device. Multiplayer networking is reserved for a future update." :
-        engine === "videopoker" ? "Hold any cards you want to keep, draw replacements, then compare the final five-card hand to the pay table." :
-        engine === "slots" ? "The reels spin independently. Matching symbols on a payline award the displayed multiplier. All results use fictional credits." :
-        engine === "keno" ? "Choose between 1 and 10 spots. Twenty unique balls are drawn from 80; payout depends on your number of hits and spots selected." :
-        engine === "dice" ? "Read the table rules before rolling. The game uses the named dice rules and local CPU opponents where applicable." :
-        engine === "board" ? "Take turns against a local strategy bot. The bot evaluates legal moves and game-specific tactical positions; no online multiplayer is connected." :
-        engine === "wheel" ? "Choose a risk profile and wager, then use the game's unique wheel, grid or multiplier rules to resolve the round." :
-        engine === "scratch" ? "Pay for a card, reveal the covered spaces and compare matching symbols with the card's prize rules." :
-        "Choose your numbers and match them against a random draw. Every result is local and uses fictional credits only."
-    };
-    gameCatalog.push(item);
+const gameCatalog=[];
+const counters={};
+function add(name,category,engine,mode,icon,description,rules,featured=false){
+  counters[engine]=(counters[engine]||0)+1;
+  const id=engine+"-"+String(counters[engine]).padStart(2,"0");
+  gameCatalog.push({
+    id,number:gameCatalog.length+1,name,category,engine,mode,kind:["board","poker","dice"].includes(engine)?"strategy":"table",
+    icon,description,rules,featured,tags:[category.toLowerCase(),engine,mode]
   });
 }
-export { gameCatalog };
+add("European Roulette","Roulette","roulette","classic","◉","Single-zero wheel with inside and outside bets.","37 pockets: 0–36. Straight-up pays 35:1; standard even-money outside bets pay 1:1.",true);
+add("American Roulette","Roulette","roulette","classic","◎","Double-zero roulette with a different house edge.","38 pockets including 0 and 00. Straight-up pays 35:1; outside bets lose on either zero.");
+add("Blackjack","Blackjack","blackjack","classic","♠","Play the dealer to 21 with hit, stand, double and split.","Six-deck shoe. Dealer stands on soft 17. Natural blackjack pays 3:2.",true);
+add("Punto Banco Baccarat","Baccarat","baccarat","classic","♦","Bet on Player, Banker or Tie using standard baccarat drawing rules.","Hands aim for 9. Player and Banker third-card rules are applied; Banker wins pay 0.95:1, Tie 8:1.");
+add("Texas Hold'em","Poker","poker","holdem","♣","Heads-up no-limit Hold'em against a local CPU opponent.","Two hole cards, five community cards and four betting streets. Hand ranking and bot decisions are handled locally.",true);
+add("Pot-Limit Omaha","Poker","poker","omaha","♠","Four hole cards and exactly two used with three community cards.","Pot-limit betting. Exactly two hole cards and three board cards form the final hand.");
+add("Jacks or Better","Video Poker","videopoker","jacks","▣","Five-card draw video poker. Hold cards and draw replacements.","A pair of Jacks or better pays. Higher poker combinations pay according to the displayed paytable.");
+add("Deuces Wild","Video Poker","videopoker","deuces","🃏","Video poker with every 2 acting as a wild card.","Twos are wild. The final five-card hand is evaluated with wild-card rules.");
+add("Five-Reel Slots","Slots","slots","classic","✦","Five reels, three rows and ten active paylines.","Match three or more symbols from the left on one of ten paylines.");
+add("80-Ball Keno","Keno","keno","classic","✳","Pick up to ten spots and compare them with twenty drawn balls.","Twenty unique numbers are drawn from 1–80. Payout depends on spots and hits.");
+add("Craps — Pass Line","Dice Games","dice","craps","⚄","Classic pass-line craps with come-out and point phases.","7 or 11 wins on come-out; 2, 3 or 12 loses. Establish a point and roll it before a 7.");
+add("Sic Bo","Dice Games","dice","sicbo","⚅","Bet on totals, parity, Big, Small or triples.","Three dice. Big/Small exclude triples; an Any Triple wager pays 30:1.");
+add("Yahtzee","Dice Games","dice","yahtzee","⚂","Roll five dice up to three times and score combinations.","Keep chosen dice between rolls. Score five-of-a-kind, full house, straights and other combinations.");
+add("Farkle","Dice Games","dice","farkle","🎲","Risk your turn points by rolling the remaining scoring dice.","Select scoring dice, keep them, reroll or bank. A Farkle ends the turn and loses unbanked points.");
+add("Liar's Dice","Dice Games","dice","liars","🎭","Four-seat hidden-dice bluffing game against house bots.","Bid the total quantity of a face under all cups or challenge the previous bid.");
+add("Cee-lo","Dice Games","dice","ceelo","🎲","Three-dice contest using 4-5-6, triples, points and 1-2-3.","4-5-6 is strongest, 1-2-3 is weakest; triples and pairs are ranked by Cee-lo rules.");
+add("Bunco","Dice Games","dice","bunco","🎯","Six rounds of target-number dice scoring against a house bot.","Roll three dice for the round's target. A triple target is a Bunco and scores 21.");
+add("Ship, Captain, Crew","Dice Games","dice","ship","🚢","Build a ship with 6, captain with 5 and crew with 4, then score cargo.","Up to three rolls. Lock 6, then 5, then 4 in order; remaining dice are cargo.");
+add("Pig","Dice Games","dice","pig","🐷","Race to 100 by rolling a die or banking your turn total.","A 1 busts the current turn. Choose when to hold to protect points.");
+add("Shut the Box","Dice Games","dice","shutbox","▦","Close numbered tiles that add up to each dice total.","Roll one or two dice depending on remaining tiles. Close an exact combination to reduce your final score.");
+add("High-Low Dice","Dice Games","dice","highlow","⚄","Predict whether three dice total 11–18 or 3–10.","Call High or Low before the roll. A correct call returns twice the wager.");
+add("Dice Poker","Dice Games","dice","dice-poker","♣","Roll five dice and challenge the house to a poker-style hand.","Keep dice over up to three rolls. Compare high dice, pair, two pair, trips, straight, full house and multiples.");
+add("Tic-Tac-Toe","Strategy & Board","board","ttt","✕","Play X against a perfect minimax opponent.","Three in a row wins. The bot searches the complete game tree.");
+add("Connect Four","Strategy & Board","board","connect4","●","Drop tokens into a seven-column board against a search-based bot.","Connect four horizontally, vertically or diagonally. The bot uses tactical minimax search.");
+add("Reversi","Strategy & Board","board","reversi","◉","Capture lines of opposing discs and control the board.","A legal move brackets one or more opposing discs. The bot evaluates corners, mobility and position.");
+add("Gomoku","Strategy & Board","board","gomoku","⚫","Make five in a row on a 15×15 board against a tactical bot.","First to connect five stones horizontally, vertically or diagonally wins.");
+add("Battleship","Strategy & Board","board","battleship","▤","Hunt the house fleet on a hidden 10×10 grid.","Sink all four hidden ships. The bot switches from hunt mode to target mode after a hit.");
+add("Checkers","Strategy & Board","board","checkers","⚫","Move, jump and promote pieces against a search-based opponent.","Diagonal movement, mandatory captures, multi-jumps and king promotion.");
+add("Nim","Strategy & Board","board","nim","▥","Take tokens from four piles against an optimal Nim bot.","Remove at least one and any number from one pile. The player taking the last token wins.");
+add("Dots and Boxes","Strategy & Board","board","dots","▦","Draw edges, complete boxes and keep scoring extra turns.","Complete all nine boxes. A player who draws the fourth edge claims that box and plays again.");
+add("Chess","Strategy & Board","board","chess","♚","Full chess rules against a search-based local opponent.","Legal moves, check, checkmate, stalemate, castling, en passant and queen promotion.");
+add("Coin Flip","Arcade","wheel","coin","◉","Call heads or tails before the coin lands.","A correct call pays 1:1; an incorrect call loses the stake.");
+add("Plinko","Arcade","wheel","plinko","◎","Drop a chip through a ten-row peg board with selectable risk.","The chip's route determines a slot multiplier. Low, medium and high risk use different payout profiles.");
+add("Limbo","Arcade","wheel","limbo","↗","Set a multiplier target and see whether the random result clears it.","Higher target multipliers have lower hit probability. Cashout is automatic at the chosen target.");
+add("Crash Run","Arcade","wheel","crash","🚀","Watch a multiplier climb and cash out before the crash point.","A random crash point ends the run. Cash out at the current multiplier to secure the return.");
+add("Mines","Arcade","wheel","mines","✹","Reveal gems on a 5×5 grid and cash out before hitting a mine.","Three hidden mines. Each safe reveal increases the multiplier; a mine ends the round.");
+add("Hi-Lo Cards","Arcade","wheel","hilo","♥","Predict whether the next card is higher or lower and build a multiplier.","A correct prediction increases the multiplier. Cash out at any time or lose on a wrong call.");
+add("Prize Wheel","Arcade","wheel","wheel","🎡","Spin a weighted multiplier wheel.","The wheel contains zero, small and large multipliers. The landing segment decides the result.");
+add("Scratch Card","Scratch Cards","scratch","classic","▤","Reveal a 3×3 scratch card and match symbols for prizes.","Three matching symbols pay the printed multiplier; otherwise the stake is lost.");
+add("6/49 Number Draw","Number Draws","draw","classic","▦","Pick six numbers and compare them with a random 6/49 draw.","Six unique numbers are drawn from 1–49. The prize multiplier depends on the number of matches.");
+
+add("Three Card Poker","New Poker Tables","extra","three-card-poker","♠","Play a three-card poker hand against the dealer with Ante and Play decisions.","Three-card rankings: straight flush, three of a kind, straight, flush, pair and high card. Dealer qualifies with Queen-high or better.");
+add("Casino War","New Poker Tables","extra","casino-war","⚔","A head-to-head high-card draw with a real War or Surrender decision on ties.","Higher card wins. On a tie, surrender half or add a three-unit war wager; burn three cards before the war draw.");
+add("Red Dog","New Poker Tables","extra","red-dog","♦","A two-card spread game where the third card must land between the first two.","Pairs push, consecutive cards pay 11:1, and a successful third card pays according to the spread.");
+add("Caribbean Stud Poker","New Poker Tables","extra","caribbean-stud","♣","Five-card poker against the dealer with an Ante, Fold or 2× Raise decision.","Dealer qualifies with Ace-King or better. If qualified, compare five-card poker ranks; ante and raise pay even money.");
+add("Let It Ride","New Poker Tables","extra","let-it-ride","♥","Three equal bets, three private cards and two community cards.","Pull back one bet before each community card or let it ride. Final five-card poker hand uses a fixed paytable.");
+add("Pai Gow Poker","New Poker Tables","extra","pai-gow","🀄","Split seven cards into a five-card high hand and two-card low hand against the house way.","Both player hands must beat the dealer's corresponding hands to win. One win and one loss is a push.");
+add("Chuck-a-Luck","New Dice Tables","extra","chuck-a-luck","⚄","Pick a face from one to six and roll three dice.","One matching die pays 1:1, two matches 2:1 and three matches 3:1.");
+add("Crown and Anchor","New Dice Tables","extra","crown-anchor","⚓","Choose a traditional symbol and roll three symbol dice.","Each matching symbol pays 1:1; multiple matches multiply the wager.");
+add("75-Ball Bingo","Puzzle & Classics","extra","bingo-75","B","Compete against three house cards on a real 5×5 Bingo card.","75 unique balls, B-I-N-G-O number ranges, free centre and horizontal, vertical or diagonal line wins.");
+add("Mancala (Kalah)","Puzzle & Classics","extra","mancala","●","Sow stones, capture opposite pits and race for the most seeds.","Kalah rules include extra turns for landing in your store, captures on empty pits and end-game sweeping. Bot searches ahead.");
+add("Mastermind","Puzzle & Classics","extra","mastermind","◈","Crack a hidden four-colour code in ten guesses.","Exact feedback counts correct colour and position; colour-only feedback counts correct colours in other positions.");
+add("Memory Match","Puzzle & Classics","extra","memory-match","▣","Find eight matching pairs on a 4×4 concentration board.","Flip two cards per move. Match every pair to complete the board; fewer moves earns a higher reward.");
+add("Minesweeper","Puzzle & Classics","extra","minesweeper","✹","Clear a 9×9 logic grid without revealing any of its ten mines.","Number clues show adjacent mines. Flag suspected mines and reveal all 71 safe squares to win.");
+add("Klondike Solitaire","Puzzle & Classics","extra","klondike","♠","Classic seven-column solitaire with stock, waste and four foundations.","Build descending alternating-colour tableau sequences and suit foundations from Ace through King.");
+
+export {gameCatalog};
