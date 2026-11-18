@@ -347,10 +347,14 @@ export function mountPoker(game,root,wallet) {
   }
   function cashout(){
     if(!state.buyIn||state.cashed)return;
-    if(state.stage==="action")state.stage="over";
+    if(state.stage==="action"){
+      const player=you();
+      if(player&&!player.folded){player.folded=true;player.acted=true;}
+      processTurn();
+    }
     const stack=Math.max(0,you().stack);
     const payout=Math.max(0,Math.floor(state.buyIn*stack/1000));
-    state.cashed=true;
+    state.cashed=true;state.stage="over";
     wallet.settle(state.buyIn,payout,game.name);
     state.last="Cashed out "+payout+" credits from "+stack+" table chips.";
     result(state.last,payout>state.buyIn?"win":payout<state.buyIn?"loss":"");
