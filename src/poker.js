@@ -131,17 +131,17 @@ export function mountPoker(game,root,wallet) {
       return '<div class="seat poker-seat '+(current?"active-seat ":"")+(seat.folded?"folded-seat":"")+'"><div class="aside-line"><small>'+(seat.isYou?"YOU":seat.name+" · "+seat.style)+'</small><small>'+(i===state.button?"DEALER BUTTON":"SEAT "+(i+1))+'</small></div><strong>'+seat.stack+' CHIPS</strong>'+details+cards+'</div>';
     }).join("");
     const boardCards=state.board.map(c=>cardMarkup(c,false)).join("");
-    const actionAllowed=isYourTurn&&!player.folded&&!player.allIn;
-    const due=Math.max(0,state.currentBet-player.streetCommitted);
+    const actionAllowed=isYourTurn&&!!player&&!player.folded&&!player.allIn;
+    const due=Math.max(0,state.currentBet-(player?player.streetCommitted:0));
     const defaultRaise=Math.max(state.currentBet+state.minRaise,state.currentBet+20);
     root.innerHTML=
-      '<div class="game-intro"><div class="game-icon-large">♠</div><h3>'+game.name+'</h3><p>'+(isOmaha?"Six-seat Pot-Limit Omaha. Each player receives four private cards and must use exactly two with three community cards.":"Six-seat No-Limit Texas Hold’em with four distinct local opponents, rotating blinds, multiway betting and side pots.")+' Bots have different risk profiles and consider hand strength, opponents and pot odds. All opponents are local CPU players; online rooms are a future update.</p></div>'+
+      '<div class="game-intro"><div class="game-icon-large">♠</div><h3>'+game.name+'</h3><p>'+(isOmaha?"Six-seat Pot-Limit Omaha with five local opponents. Each player receives four private cards and must use exactly two with three community cards.":"Six-seat No-Limit Texas Hold’em with five distinct local opponents, rotating blinds, multiway betting and side pots.")+' Bots have different risk profiles and consider hand strength, opponents and pot odds. All opponents are local CPU players; online rooms are a future update.</p></div>'+
       '<div class="bet-controls"><label for="stake">BUY-IN</label><input class="bet-input" id="stake" type="number" min="10" step="10" value="100"><span class="tiny-note">Current credits: '+Math.floor(wallet.balance).toLocaleString()+'</span>'+
       (state.stage==="idle"?'<button class="game-action primary" data-act="buy">Join table</button>':'')+
       ((state.stage==="showdown"||state.stage==="over")&&!state.cashed?'<button class="game-action primary" data-act="next">Next hand</button>':'')+
       (state.buyIn&&!state.cashed?'<button class="game-action secondary" data-act="cashout">Cash out</button>':'')+
       '</div>'+
-      '<div class="table-felt"><div class="table-seats poker-seats">'+seats+'</div><div class="tiny-note">POT · '+potTotal()+' CHIPS · '+(streetNames[state.street]||"WAITING")+'</div>'+
+      '<div class="table-felt"><div class="table-seats poker-seats">'+seats+'</div><div class="tiny-note">POT · '+(state.stage==="action"?potTotal():0)+' CHIPS · '+(streetNames[state.street]||"WAITING")+'</div>'+
       '<div class="tiny-note">COMMUNITY CARDS</div><div class="playing-cards">'+(boardCards||'<span class="muted">The flop has not been dealt.</span>')+'</div>'+
       '<div class="tiny-note">YOUR HOLE CARDS</div><div class="playing-cards">'+(player&&player.hole.length?player.hole.map(c=>cardMarkup(c,false)).join(""):"")+'</div>'+
       '<div class="tiny-note">'+(state.buyIn?"Your stack converts back to fictional credits when you cash out":"Join with a buy-in to receive 1,000 table chips")+'</div></div>'+
