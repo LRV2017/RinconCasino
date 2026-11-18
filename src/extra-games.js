@@ -409,7 +409,7 @@ function mountKlondike(game,root,wallet){
   function canFoundation(card,pile){return pile.length?pile[pile.length-1].suit===card.suit&&value(card)===value(pile[pile.length-1])+1:value(card)===14;}
   function start(){const bet=c.takeBet();if(!bet)return;const d=deck(),tableau=Array.from({length:7},(_,i)=>{const pile=d.splice(0,i+1);return pile.map((x,j)=>({...x,face:j===i}));});s={bet,stock:d,waste:[],tableau,foundations:[[],[],[],[]],moves:0,done:false};selected=null;render("Build four foundations from Ace to King.");}
   function render(status="Select a face-up card to move.",type=""){
-    const body=s?'<div class="tiny-note">STOCK / WASTE · MOVES '+s.moves+'</div><div class="action-row"><button class="game-action secondary" data-act="stock">Draw stock ('+s.stock.length+')</button><button class="game-action secondary" data-act="waste">'+(s.waste.length?card(s.waste[s.waste.length-1]):"Waste")+'</button><button class="game-action secondary" data-act="foundation" data-pile="0">♠ '+s.foundations[0].length+'</button><button class="game-action secondary" data-act="foundation" data-pile="1">♥ '+s.foundations[1].length+'</button><button class="game-action secondary" data-act="foundation" data-pile="2">♦ '+s.foundations[2].length+'</button><button class="game-action secondary" data-act="foundation" data-pile="3">♣ '+s.foundations[3].length+'</button></div><div class="board-grid" style="grid-template-columns:repeat(7,minmax(48px,1fr));gap:5px;align-items:start">'+s.tableau.map((pile,i)=>'<div class="aside-card" data-col="'+i+'" style="min-height:180px;padding:5px"><small class="aside-label">PILE '+(i+1)+'</small>'+pile.map((x,j)=>'<button class="playing-card '+(suitColor(x)==="red"?"red":"")+'" data-card="'+i+':'+j+'" style="width:44px;height:58px;margin:2px;padding:4px;'+(!x.face?"background:repeating-linear-gradient(45deg,#37452e 0 4px,#596e43 4px 8px);color:transparent":selected&&selected.col===i&&selected.index===j?"outline:3px solid #d7bd7c":"")+'">'+(x.face?x.rank+x.suit:"◆")+'</button>').join("")+'</div>').join("")+'</div><div class="action-row"><button class="game-action primary" data-act="to-foundation" '+(!selected?"disabled":"")+' >Move selected to foundation</button><button class="game-action secondary" data-act="clear">Clear selection</button></div>':'<div class="table-felt"><h3>Klondike Solitaire</h3><p class="muted">Seven tableau columns, a stock and four suit foundations. Build descending alternating-colour runs and move Aces to Kings to win.</p><button class="game-action primary" data-act="start">Deal solitaire</button></div>';
+    const body=s?'<div class="tiny-note">STOCK / WASTE · MOVES '+s.moves+'</div><div class="action-row"><button class="game-action secondary" data-act="stock">Draw stock ('+s.stock.length+')</button><button class="game-action secondary" data-card="waste">'+(s.waste.length?card(s.waste[s.waste.length-1]):"Waste")+'</button><button class="game-action secondary" data-act="foundation" data-pile="0">♠ '+s.foundations[0].length+'</button><button class="game-action secondary" data-act="foundation" data-pile="1">♥ '+s.foundations[1].length+'</button><button class="game-action secondary" data-act="foundation" data-pile="2">♦ '+s.foundations[2].length+'</button><button class="game-action secondary" data-act="foundation" data-pile="3">♣ '+s.foundations[3].length+'</button></div><div class="board-grid" style="grid-template-columns:repeat(7,minmax(48px,1fr));gap:5px;align-items:start">'+s.tableau.map((pile,i)=>'<div class="aside-card" data-col="'+i+'" style="min-height:180px;padding:5px"><small class="aside-label">PILE '+(i+1)+'</small>'+pile.map((x,j)=>'<button class="playing-card '+(suitColor(x)==="red"?"red":"")+'" data-card="'+i+':'+j+'" style="width:44px;height:58px;margin:2px;padding:4px;'+(!x.face?"background:repeating-linear-gradient(45deg,#37452e 0 4px,#596e43 4px 8px);color:transparent":selected&&selected.col===i&&selected.index===j?"outline:3px solid #d7bd7c":"")+'">'+(x.face?x.rank+x.suit:"◆")+'</button>').join("")+'</div>').join("")+'</div><div class="action-row"><button class="game-action primary" data-act="to-foundation" '+(!selected?"disabled":"")+' >Move selected to foundation</button><button class="game-action secondary" data-act="clear">Clear selection</button></div>':'<div class="table-felt"><h3>Klondike Solitaire</h3><p class="muted">Seven tableau columns, a stock and four suit foundations. Build descending alternating-colour runs and move Aces to Kings to win.</p><button class="game-action primary" data-act="start">Deal solitaire</button></div>';
     c.page(c.betInput()+body,status,type);
   }
   function revealTop(col){const pile=s.tableau[col];if(pile.length&&!pile[pile.length-1].face)pile[pile.length-1].face=true;}
@@ -418,7 +418,7 @@ function mountKlondike(game,root,wallet){
     pile.push(cardObj);return true;
   }
   function click(e){
-    const b=e.target.closest("[data-act],[data-card]");if(!b)return;
+    const b=e.target.closest("[data-act],[data-card],[data-col]");if(!b)return;
     const a=b.dataset.act;
     if(a==="start"||a==="again"){if(s&&!s.done)return;start();return;}
     if(!s||s.done)return;
@@ -428,27 +428,41 @@ function mountKlondike(game,root,wallet){
       s.moves++;render();return;
     }
     if(a==="clear"){selected=null;render();return;}
-    if(a==="to-foundation"&&selected){
-      const pile=s.tableau[selected.col],cards=pile.slice(selected.index);
-      if(cards.length!==1||!cards[0].face||!moveToFoundation(cards[0])){message("Only a single valid top card can move to a foundation.");return;}
-      pile.pop();revealTop(selected.col);selected=null;s.moves++;checkWin();render();return;
-    }
-    if(a==="foundation"&&selected){
-      const target=s.tableau[selected.col],cards=target.slice(selected.index),foundation=s.foundations[Number(b.dataset.pile)]||[];
-      if(cards.length!==1||!cards[0].face||!canFoundation(cards[0],foundation)){message("That card cannot build on this foundation.");return;}
-      foundation.push(cards[0]);target.pop();revealTop(selected.col);selected=null;s.moves++;checkWin();render();return;
+    const selectedCards=()=>{
+      if(!selected)return [];
+      return selected.col==="waste"?(s.waste.length?[s.waste[s.waste.length-1]]:[]):s.tableau[selected.col].slice(selected.index);
+    };
+    const removeSelected=()=>{
+      if(selected.col==="waste")s.waste.pop();
+      else {s.tableau[selected.col].splice(selected.index);revealTop(selected.col);}
+      selected=null;
+    };
+    if((a==="to-foundation"||a==="foundation")&&selected){
+      const cards=selectedCards(),foundation=s.foundations[a==="foundation"?Number(b.dataset.pile):SUITS.indexOf(cards[0]?.suit)]||[];
+      if(cards.length!==1||!canFoundation(cards[0],foundation)){message("Only a single valid top card can move to that foundation.");return;}
+      foundation.push(cards[0]);removeSelected();s.moves++;checkWin();render();return;
     }
     if(b.dataset.card!==undefined){
+      if(b.dataset.card==="waste"){
+        if(!s.waste.length)return;
+        if(selected&&selected.col==="waste"){selected=null;}
+        else selected={col:"waste",index:0};
+        render();return;
+      }
       const [col,index]=b.dataset.card.split(":").map(Number),pile=s.tableau[col],obj=pile[index];
-      if(!obj.face){return;}
+      if(!obj.face)return;
       if(!selected){selected={col,index};render();return;}
       if(selected.col===col&&selected.index===index){selected=null;render();return;}
-      const source=s.tableau[selected.col],moving=source.slice(selected.index),dest=pile;
-      const target=dest[dest.length-1];
-      if(!target&&value(moving[0])===13||target&&canStack(moving[0],target)){
-        source.splice(selected.index);dest.push(...moving);revealTop(selected.col);selected=null;s.moves++;checkWin();render();return;
+      const moving=selectedCards(),target=pile[pile.length-1];
+      if(moving.length&&(!target&&value(moving[0])===13||target&&canStack(moving[0],target))){
+        removeSelected();pile.push(...moving);selected=null;s.moves++;checkWin();render();return;
       }
       selected={col,index};render();return;
+    }
+    if(b.dataset.col!==undefined&&selected){
+      const col=Number(b.dataset.col),pile=s.tableau[col],target=pile[pile.length-1],moving=selectedCards();
+      if(!moving.length||target||value(moving[0])!==13){message("Only a King can start an empty tableau column.");return;}
+      removeSelected();pile.push(...moving);selected=null;s.moves++;checkWin();render();
     }
   }
   function checkWin(){if(s.foundations.every(p=>p.length===13)){s.done=true;c.settle(s.bet,s.bet*5,"Solitaire complete. All 52 cards are in the foundations.");}}
