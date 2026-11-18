@@ -67,4 +67,7 @@ add("Klondike Solitaire","Puzzle & Classics","extra","klondike","♠","Classic s
 add("Russian Roulette","Party Games","extra","russian-roulette","🎲","A four-seat local-bot survival game with one hidden danger token in each six-token chamber.","Take turns revealing sealed tokens. A danger marker costs a life; last player remaining wins.");
 add("Devil’s Chamber","Party Games","extra","devils-chamber","😈","A tense four-seat bluff-and-risk party game with hidden outcomes, limited gadgets and smart local rivals.","Choose yourself or another player as the target. Use the Demon Lens to peek and the Soul Ward to block one hit; a safe self-target earns another turn.");
 
+add("Russian Roulette","Party Survival","extra","russian-roulette","🎯","A tense four-seat survival game against three local opponents. One virtual chamber is loaded per six-shot cycle.","Take turns drawing a hidden chamber. One loaded round eliminates its player; blanks keep the table moving until one player remains.");
+add("Demon's Deal","Party Survival","extra","demons-deal","👹","A dark-fantasy four-player showdown with hidden rounds, tactical gadgets and rival-targeting.","Two charged rounds and four blanks per cycle. Use the Oracle Lens, Ward and Hex to bluff, protect or outplay three local bots.");
+
 export {gameCatalog};
