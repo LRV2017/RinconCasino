@@ -241,59 +241,273 @@ function mountKeno(game,root,wallet){
   render();return {close:()=>{},destroy:off};
 }
 function mountDice(game,root,wallet){
-  const c=common(game,root,wallet);const mode=game.mode;let s=null;
-  function roll(n){return Array.from({length:n},()=>1+Math.floor(Math.random()*6));}
+  const c=common(game,root,wallet),mode=game.mode;
+  let s=null;
+  const faces=["","⚀","⚁","⚂","⚃","⚄","⚅"];
+  const roll=n=>Array.from({length:n},()=>1+Math.floor(Math.random()*6));
+  const sum=a=>a.reduce((x,y)=>x+y,0);
+  function finish(message,payout){
+    s.done=true;s.message=message;s.win=payout>s.bet;c.settle(s.bet,payout,message);render();
+  }
+  function start(){
+    const bet=c.charge();if(bet===null)return null;return bet;
+  }
+  function scoreDice(dice){
+    if(dice.length===6){
+      const sorted=dice.slice().sort((a,b)=>a-b);
+      if(sorted.join("")==="123456")return 1500;
+      const counts={};dice.forEach(d=>counts[d]=(counts[d]||0)+1);
+      if(Object.values(counts).filter(x=>x===2).length===3)return 1500;
+    }
+    const counts={};dice.forEach(d=>counts[d]=(counts[d]||0)+1);
+    for(let n=6;n>=3;n--)for(let face=1;face<=6;face++)if(counts[face]>=n)return (face===1?1000:face*100)*Math.pow(2,n-3);
+    return dice.reduce((a,d)=>a+(d===1?100:d===5?50:0),0);
+  }
+  function pokerDiceRank(dice){
+    const sorted=dice.slice().sort((a,b)=>a-b),counts={};dice.forEach(d=>counts[d]=(counts[d]||0)+1);
+    const vals=Object.values(counts).sort((a,b)=>b-a);
+    if(vals[0]===5)return [7,sorted[0]];
+    if(vals[0]===4)return [6,Number(Object.keys(counts).find(k=>counts[k]===4))];
+    if(vals[0]===3&&vals[1]===2)return [5,Number(Object.keys(counts).find(k=>counts[k]===3))];
+    if(sorted.join("")==="12345"||sorted.join("")==="23456")return [4,sorted[4]];
+    if(vals[0]===3)return [3,Number(Object.keys(counts).find(k=>counts[k]===3))];
+    if(vals[0]===2&&vals[1]===2)return [2,...Object.keys(counts).filter(k=>counts[k]===2).map(Number).sort((a,b)=>b-a)];
+    if(vals[0]===2)return [1,Number(Object.keys(counts).find(k=>counts[k]===2))];
+    return [0,...sorted.slice().reverse()];
+  }
+  function compareRank(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){if((a[i]||0)!==(b[i]||0))return (a[i]||0)-(b[i]||0);}return 0;}
+  function combinations(target,tiles){
+    const out=[];
+    for(let mask=1;mask<(1<<tiles.length);mask++){let values=[],total=0;for(let i=0;i<tiles.length;i++)if(mask&(1<<i)){values.push(tiles[i]);total+=tiles[i];}if(total===target)out.push(values);}
+    return out.sort((a,b)=>a.length-b.length);
+  }
+  function shutBotTurn(tiles){
+    let remaining=tiles.slice(),score=0;
+    for(let turn=0;turn<9;turn++){
+      const totalLeft=remaining.reduce((a,b)=>a+b,0),dice=roll(totalLeft<=6?1:2),options=combinations(sum(dice),remaining);
+      if(!options.length)break;
+      const pick=options[0];for(const n of pick){const i=remaining.indexOf(n);if(i>=0)remaining.splice(i,1);}
+      score+=pick.length;
+      if(!remaining.length)return {remaining,score:0,closed:true};
+    }
+    return {remaining,score:remaining.reduce((a,b)=>a+b,0),closed:false};
+  }
+  function botPoker(){
+    let dice=roll(5);
+    for(let turn=1;turn<3;turn++){
+      const counts={};dice.forEach(x=>counts[x]=(counts[x]||0)+1);
+      const keepFace=Number(Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||Number(b)-Number(a))[0]);
+      const keepCount=counts[keepFace]||0;
+      dice=dice.filter(x=>x===keepFace).concat(roll(5-keepCount));
+    }
+    return dice;
+  }
+  function botShip(){
+    let dice=roll(5),held=[],cargo=0,need=[6,5,4];
+    for(let turn=0;turn<3;turn++){
+      for(const required of need){const i=dice.indexOf(required);if(i>=0){held.push(required);dice.splice(i,1);need.shift();}}
+      if(!need.length)break;
+      if(turn<2)dice=dice.concat(roll(5-held.length));
+    }
+    if(held.length===3)cargo=sum(dice);
+    return {dice:held.concat(dice),held,cargo};
+  }
+  function cLoRank(dice){
+    const a=dice.slice().sort((x,y)=>y-x);
+    if(a.join("")==="654")return 3;
+    if(a.join("")==="321")return -1;
+    if(a[0]===a[1]&&a[1]===a[2])return 2+a[0]/10;
+    if(a[0]===a[1])return 1+a[2]/100;
+    return 0;
+  }
   function render(){
-    let body='<div class="tiny-note">'+game.name.toUpperCase()+' · LOCAL DICE TABLE</div>';
+    let body='<div class="tiny-note">'+game.name.toUpperCase()+' · HOUSE DICE TABLE</div>';
     if(mode==="craps"){
-      body+='<div class="table-felt"><h3>Pass Line</h3><p class="muted">7 or 11 wins on the come-out roll. 2, 3 or 12 loses. Any other total becomes your point; hit it before a 7.</p><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+["","⚀","⚁","⚂","⚃","⚄","⚅"][d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div>')+'</div><div class="tiny-note">'+(s&&s.point?"POINT: "+s.point:"COME-OUT ROLL")+'</div><div class="action-row"><button class="game-action primary" data-act="roll">Roll pass line</button></div></div>';
+      body+='<div class="table-felt"><h3>Pass Line</h3><p class="muted">7 or 11 wins on the come-out roll. 2, 3 or 12 loses. Any other total becomes your point; hit it before a 7.</p><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div>')+'</div><div class="tiny-note">'+(s&&s.point?"POINT: "+s.point:"COME-OUT ROLL")+'</div><div class="action-row"><button class="game-action primary" data-act="craps">'+(s&&!s.done?"Roll again":"Play pass line")+'</button></div></div>';
     } else if(mode==="sicbo"){
-      body+='<div class="choice-row">'+["big","small","odd","even","triple"].map(x=>'<button class="game-action '+((s?s.pick:"big")===x?"primary":"secondary")+'" data-pick="'+x+'">'+x.toUpperCase()+'</button>').join("")+'</div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">⚀⚁⚂⚃⚄⚅'.charAt(d-1)+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div><div class="die">⚂</div>')+'</div><div class="tiny-note">BIG / SMALL / ODD / EVEN PAY 1:1 · ANY TRIPLE PAYS 30:1</div><div class="action-row"><button class="game-action primary" data-act="roll">Roll three dice</button></div>';
-    } else if(mode==="yahtzee"){
-      body+='<div class="tiny-note">UP TO THREE ROLLS · TAP DICE TO HOLD THEM · SCORE THE BEST COMBINATION</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">⚀⚁⚂⚃⚄⚅'.charAt(d-1)+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div><div class="action-row"><button class="game-action primary" data-act="roll" '+(s&&s.rolls>=3?"disabled":"")+'>'+(s?"Roll "+(3-s.rolls)+" remaining":"Start roll")+'</button><button class="game-action secondary" data-act="score" '+(!s||!s.rolls?"disabled":"")+'>Score hand</button></div>';
+      body+='<div class="choice-row">'+["big","small","odd","even","triple"].map(x=>'<button class="game-action '+((s?s.pick:"big")===x?"primary":"secondary")+'" data-pick="'+x+'">'+x.toUpperCase()+'</button>').join("")+'</div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div><div class="die">⚂</div>')+'</div><div class="tiny-note">BIG / SMALL / ODD / EVEN PAY 1:1 · ANY TRIPLE PAYS 30:1</div><div class="action-row"><button class="game-action primary" data-act="sicbo">Roll three dice</button></div>';
+    } else if(mode==="yahtzee"||mode==="dice-poker"){
+      body+='<div class="tiny-note">UP TO THREE ROLLS · TAP DICE TO HOLD THEM</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div><div class="action-row"><button class="game-action primary" data-act="roll" '+(s&&s.rolls>=3?"disabled":"")+'>'+(s?"Roll "+(3-s.rolls)+" remaining":"Start roll")+'</button><button class="game-action secondary" data-act="score" '+(!s||!s.rolls||s.done?"disabled":"")+'>'+(mode==="dice-poker"?"Showdown":"Score hand")+'</button></div>';
+    } else if(mode==="farkle"){
+      body+='<div class="tiny-note">SELECT A VALID SCORING SET · KEEP IT · ROLL THE REST OR BANK</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.selected.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(6))+'</div><div class="score-card"><strong>'+(s?s.points:0)+'</strong><span>TURN POINTS</span></div><div class="action-row"><button class="game-action primary" data-act="roll">Roll</button><button class="game-action secondary" data-act="keep" '+(!s||!s.selected.length||s.done?"disabled":"")+' >Keep selection</button><button class="game-action secondary" data-act="bank" '+(!s||!s.points||s.done?"disabled":"")+' >Bank points</button></div>';
+    } else if(mode==="liars"){
+      body+='<div class="tiny-note">LIAR’S DICE · 4 PLAYERS · 5 HIDDEN DICE EACH</div><div class="dice-tray">'+(s?s.mine.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">?</div>'.repeat(5))+'</div><div class="table-seats"><div class="seat"><small>YOUR DICE</small><strong>5 hidden</strong></div><div class="seat"><small>HOUSE BOTS</small><strong>15 hidden</strong></div></div><div class="action-row"><label class="tiny-note">COUNT <input id="bidCount" class="bet-input" type="number" min="1" max="20" value="'+(s&&s.lastBid?s.lastBid.count+1:1)+'"></label><label class="tiny-note">FACE <select id="bidFace" class="bet-input"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>1</option></select></label><button class="game-action primary" data-act="bid">Bid</button><button class="game-action danger" data-act="challenge" '+(!s||!s.lastBid||s.done?"disabled":"")+' >Challenge</button></div>';
+    } else if(mode==="ceelo"){
+      body+='<div class="tiny-note">Cee-lo · 3 DICE · 4-5-6 WINS · 1-2-3 LOSES · TRIPLES BEAT POINTS</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.you.join(" · "):"—")+'</strong></div><div class="seat"><small>HOUSE</small><strong>'+(s?s.bot.join(" · "):"—")+'</strong></div></div><div class="action-row"><button class="game-action primary" data-act="ceelo">Roll against house</button></div>';
+    } else if(mode==="bunco"){
+      body+='<div class="tiny-note">BUNCO · TARGET NUMBER '+(s?s.target:1)+' · 3 DICE · THREE TURNS EACH</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.youScore:0)+'</strong></div><div class="seat"><small>HOUSE BOT</small><strong>'+(s?s.botScore:0)+'</strong></div></div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div>'.repeat(3))+'</div><div class="action-row"><button class="game-action primary" data-act="bunco">Roll turn '+(s?s.turn+1:1)+'</button></div>';
+    } else if(mode==="ship"){
+      body+='<div class="tiny-note">SHIP · CAPTAIN · CREW · CARGO · HOLD 6, THEN 5, THEN 4 · UP TO 3 ROLLS</div><div class="dice-tray">'+(s?s.dice.map((d,i)=>'<button class="die '+(s.holds.includes(i)?"held":"")+'" data-die="'+i+'">'+faces[d]+'</button>').join(""):'<div class="die">⚄</div>'.repeat(5))+'</div><div class="action-row"><button class="game-action primary" data-act="ship">Roll / lock dice</button></div>';
+    } else if(mode==="pig"){
+      body+='<div class="tiny-note">PIG DICE · FIRST TO 100 · ROLL OR BANK YOUR TURN</div><div class="table-seats"><div class="seat"><small>YOU</small><strong>'+(s?s.youTotal:0)+' + '+(s?s.turnScore:0)+'</strong></div><div class="seat"><small>HOUSE BOT</small><strong>'+(s?s.botTotal:0)+'</strong></div></div><div class="dice-tray">'+(s?'<div class="die">'+faces[s.die]+'</div>':'<div class="die">⚀</div>')+'</div><div class="action-row"><button class="game-action primary" data-act="pigroll" '+(s&&s.done?"disabled":"")+' >Roll</button><button class="game-action secondary" data-act="pigbank" '+(!s||!s.turnScore||s.done?"disabled":"")+' >Hold turn</button></div>';
+    } else if(mode==="shutbox"){
+      body+='<div class="tiny-note">SHUT THE BOX · ROLL 2 DICE · CLOSE TILES THAT ADD TO THE TOTAL</div><div class="choice-row">'+(s?s.tiles.map(n=>'<button class="game-action '+(s.selected.includes(n)?"primary":"secondary")+'" data-tile="'+n+'" '+(!s.tiles.includes(n)||s.done?"disabled":"")+'>'+n+'</button>').join(""):Array.from({length:9},(_,i)=>'<button class="game-action secondary">'+(i+1)+'</button>').join(""))+'</div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div><div class="die">⚁</div>')+'</div><div class="action-row"><button class="game-action primary" data-act="boxroll">Roll</button><button class="game-action secondary" data-act="boxclose" '+(!s||!s.selected.length||s.done?"disabled":"")+' >Close selected tiles</button><button class="game-action secondary" data-act="boxbank" '+(!s||s.done?"disabled":"")+' >End turn</button></div>';
+    } else {
+      body+='<div class="tiny-note">HIGH / LOW DICE · GUESS THE TOTAL</div><div class="choice-row"><button class="game-action primary" data-pick="high">HIGH 11–18</button><button class="game-action secondary" data-pick="low">LOW 3–10</button></div><div class="dice-tray">'+(s?s.dice.map(d=>'<div class="die">'+faces[d]+'</div>').join(""):'<div class="die">⚄</div>'.repeat(3))+'</div><div class="action-row"><button class="game-action primary" data-act="highlow">Roll</button></div>';
+    }
+    c.page(body,true);
+    if(s&&s.message)c.status(s.message,s.win?"win":s.done?"loss":"");
+  }
+  function action(e){
+    const b=e.target.closest("[data-act],[data-pick],[data-die],[data-tile]");if(!b)return;
+    if(b.dataset.pick){
+      if(!s||s.done)s={pick:b.dataset.pick};else s.pick=b.dataset.pick;
+      render();return;
+    }
+    if(mode==="craps"&&b.dataset.act==="craps"){
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,point:0,dice:[],done:false};}
+      s.dice=roll(2);const n=sum(s.dice);
+      if(!s.point){if(n===7||n===11){finish("Natural "+n+" — pass line wins.",s.bet*2);return;}if(n===2||n===3||n===12){finish("Craps "+n+" — pass line loses.",0);return;}s.point=n;s.message="Point is "+n+". Roll the point before a 7.";}
+      else if(n===s.point){finish("Made the point "+n+". You win.",s.bet*2);return;}
+      else if(n===7){finish("Seven-out. Pass line loses.",0);return;}
+      else s.message="Rolled "+n+". Point remains "+s.point+".";
+      render();
+    } else if(mode==="sicbo"&&b.dataset.act==="sicbo"){
+      const bet=start();if(bet===null)return;const dice=roll(3),n=sum(dice),pick=s&&!s.done?s.pick||"big":s&&s.pick||"big",triple=dice.every(x=>x===dice[0]);
+      let win=false,mult=0;
+      if(pick==="triple"){win=triple;mult=31;}
+      else if(pick==="big"){win=n>=11&&!triple;mult=2;}
+      else if(pick==="small"){win=n<=10&&!triple;mult=2;}
+      else if(pick==="odd"){win=n%2===1&&!triple;mult=2;}
+      else {win=n%2===0&&!triple;mult=2;}
+      s={bet,dice,pick,done:false};finish("Rolled "+dice.join(" · ")+" for "+n+". "+(win?"Your "+pick+" bet wins.":"No hit."),win?bet*mult:0);
+    } else if((mode==="yahtzee"||mode==="dice-poker")){
+      if(b.dataset.act==="roll"){
+        if(!s||s.done){const bet=start();if(bet===null)return;s={bet,dice:roll(5),holds:[],rolls:1,done:false};}
+        else if(s.rolls<3){s.dice=s.dice.map((d,i)=>s.holds.includes(i)?d:roll(1)[0]);s.rolls++;s.message="Roll "+s.rolls+" of 3. Hold dice or score.";}
+      } else if(b.dataset.die!==undefined&&s&&!s.done){const i=Number(b.dataset.die);s.holds=s.holds.includes(i)?s.holds.filter(x=>x!==i):s.holds.concat([i]);}
+      else if(b.dataset.act==="score"&&s&&!s.done){
+        const rank=pokerDiceRank(s.dice);let multiplier=0,label="";
+        if(mode==="dice-poker"){
+          multiplier=[0,0.5,1.2,2,4,8,15,30][rank[0]]||0;
+          label=["High dice","Pair","Two pair","Three of a kind","Straight","Full house","Four of a kind","Five of a kind"][rank[0]];
+          const bot=botPoker(),botRank=pokerDiceRank(bot),cmp=compareRank(rank,botRank);
+          if(cmp>0){finish("You beat the bot with "+label+". Bot rolled "+bot.join(" · ")+".",Math.floor(s.bet*2));return;}
+          if(cmp===0){finish("Tie: both hands rank the same. Stake returned.",s.bet);return;}
+          finish("Bot wins with "+["High dice","Pair","Two pair","Three of a kind","Straight","Full house","Four of a kind","Five of a kind"][botRank[0]]+".",0);return;
+        } else {
+          const counts={};s.dice.forEach(d=>counts[d]=(counts[d]||0)+1);const vals=Object.values(counts).sort((a,b)=>b-a),sorted=s.dice.slice().sort((a,b)=>a-b).join("");
+          let score=sum(s.dice);
+          if(vals[0]===5){multiplier=50;label="Yahtzee";}
+          else if(vals[0]===4){multiplier=8;label="Four of a kind";}
+          else if(vals[0]===3&&vals[1]===2){multiplier=5;label="Full house";}
+          else if(sorted==="12345"||sorted==="23456"){multiplier=6;label="Straight";}
+          else if(vals[0]===3){multiplier=2.5;label="Three of a kind";}
+          else if(vals[0]===2&&vals[1]===2){multiplier=1.5;label="Two pair";}
+          else {multiplier=0;label="Chance";}
+          finish(label+" · score "+score+".",Math.floor(s.bet*multiplier));return;
+        }
+      }
+      render();
     } else if(mode==="farkle"){
       if(b.dataset.act==="roll"){
-        if(!s||s.done){const bet=c.charge();if(bet===null)return;s={bet,dice:roll(6),selected:[],points:0,remaining:6,phase:"select"};if(scoreFarkle(s.dice)===0){finishDice(bet,0,"Farkle! None of the six dice scored.");return;}s.message="Select scoring dice, then keep them or bank your points.";}
-        else if(s.phase==="ready"){s.dice=roll(s.remaining);s.selected=[];s.phase="select";if(scoreFarkle(s.dice)===0){finishDice(s.bet,0,"Farkle! No scoring dice on the reroll.");return;}s.message="Reroll complete. Select scoring dice.";}
-        else {c.status("Choose and keep scoring dice before rolling again.","loss");return;}
+        if(!s||s.done){const bet=start();if(bet===null)return;s={bet,dice:roll(6),selected:[],points:0,remaining:6,phase:"select",done:false};}
+        else if(s.phase==="ready"){s.dice=roll(s.remaining);s.selected=[];s.phase="select";if(scoreDice(s.dice)===0){finish("Farkle! No scoring dice. Your turn points are lost.",0);return;}}
+        else {c.status("Select and keep scoring dice first.","loss");return;}
+        if(scoreDice(s.dice)===0){finish("Farkle! No scoring dice. Stake lost.",0);return;}
+        s.message="Choose a valid scoring combination, then keep or roll again.";
       } else if(b.dataset.die!==undefined&&s&&!s.done&&s.phase==="select"){
         const i=Number(b.dataset.die);s.selected=s.selected.includes(i)?s.selected.filter(x=>x!==i):s.selected.concat([i]);
       } else if(b.dataset.act==="keep"&&s&&!s.done&&s.phase==="select"){
-        const chosen=s.selected.map(i=>s.dice[i]),score=scoreFarkle(chosen);
-        if(score===0){c.status("Those dice do not form a scoring combination.","loss");return;}
-        s.points+=score;s.remaining-=chosen.length;if(s.remaining<=0)s.remaining=6;
-        s.dice=[];s.selected=[];s.phase="ready";s.message="Scored "+score+" points. Roll the remaining dice or bank your turn.";
+        const chosen=s.selected.map(i=>s.dice[i]),score=scoreDice(chosen);
+        if(!score){c.status("That selection is not a scoring set.","loss");return;}
+        s.points+=score;s.remaining-=chosen.length;if(s.remaining<=0)s.remaining=6;s.dice=[];s.selected=[];s.phase="ready";s.message="Kept "+score+" points. Roll the remaining dice or bank.";
       } else if(b.dataset.act==="bank"&&s&&!s.done&&s.points>0){
-        const payout=Math.floor(s.bet*Math.min(8,Math.max(0,s.points/250)));
-        finishDice(s.bet,payout,"Banked "+s.points+" points. Gross payout "+payout+" credits.");return;
+        finish("Banked "+s.points+" Farkle points.",Math.floor(s.bet*Math.min(6,s.points/400)));return;
       }
       render();
     } else if(mode==="liars"){
       if(b.dataset.act==="bid"){
-        if(!s||s.done){const bet=c.charge();if(bet===null)return;s={bet,mine:roll(5),bots:[roll(5),roll(5),roll(5)],lastBid:null,done:false};}
+        if(!s||s.done){const bet=start();if(bet===null)return;s={bet,mine:roll(5),bots:[roll(5),roll(5),roll(5)],lastBid:null,done:false};}
         const count=Math.max(1,Math.min(20,Number(root.querySelector("#bidCount").value||1))),face=Number(root.querySelector("#bidFace").value||2);
-        if(s.lastBid&&(count<s.lastBid.count||count===s.lastBid.count&&face<=s.lastBid.face)){c.status("Your bid must raise the quantity or the face value.","loss");return;}
-        const actual=s.mine.concat(...s.bots).filter(x=>x===face).length;
+        if(s.lastBid&&(count<s.lastBid.count||count===s.lastBid.count&&face<=s.lastBid.face)){c.status("Your bid must increase quantity or face value.","loss");return;}
         s.lastBid={count,face,by:"you"};
-        const visible=s.bots[0].filter(x=>x===face).length,expected=visible+2.5;
-        if(count>Math.ceil(expected+1)){
-          const wins=actual>=count;
-          finishDice(s.bet,wins?s.bet*2:0,"The bot challenges. There are "+actual+" dice showing "+face+". "+(wins?"Your bid was correct.":"The bid was too high."));return;
+        const own=s.bots[0].filter(d=>d===face).length,expected=own+15/6;
+        if(count>expected+1.5){
+          const actual=s.mine.concat(...s.bots).filter(d=>d===face).length;
+          finish("House challenges. There are "+actual+" dice showing "+face+". "+(actual>=count?"Your bid was correct.":"Your bid was too high."),actual>=count?s.bet*2:0);return;
         }
-        const raiseCount=count+1;
-        s.lastBid={count:raiseCount,face,by:"bot"};
-        s.message="Bot raises the bid to "+raiseCount+" of "+face+". Raise again or call bluff.";
+        const nextFace=face===6?1:face+1;
+        const nextCount=count+(nextFace===1?1:0);
+        s.lastBid={count:nextCount,face:nextFace,by:"bot"};
+        s.message="The bot raises to "+nextCount+" of "+nextFace+". Raise again or challenge.";
       } else if(b.dataset.act==="challenge"&&s&&!s.done&&s.lastBid){
-        const actual=s.mine.concat(...s.bots).filter(x=>x===s.lastBid.face).length,wins=actual>=s.lastBid.count;
-        finishDice(s.bet,wins?s.bet*2:0,"There are "+actual+" dice showing "+s.lastBid.face+". "+(wins?"The bid was correct.":"The bid was a bluff."));return;
+        const actual=s.mine.concat(...s.bots).filter(d=>d===s.lastBid.face).length,truth=actual>=s.lastBid.count;
+        finish("Reveal: "+actual+" dice show "+s.lastBid.face+". "+(truth?"The bid was true.":"The bid was a bluff."),truth?s.bet*2:0);return;
       }
       render();
-    } else if(b.dataset.act==="roll"){
-      if(s&&s.done)s=null;
-      const bet=c.charge();if(bet===null)return;const dice=roll(3),sum=dice.reduce((a,x)=>a+x,0),pick=s&&s.pick||"high",win=pick==="high"?sum>=11:sum<=10,payout=win?bet*2:0;s={dice,pick,win,message:"Rolled "+sum+". "+(win?"Your "+pick+" call wins.":"Your "+pick+" call loses.")};finishDice(bet,payout,s.message);
+    } else if(mode==="ceelo"&&b.dataset.act==="ceelo"){
+      const bet=start();if(bet===null)return;
+      let you=roll(3),bot=roll(3),a=cLoRank(you),d=cLoRank(bot),attempt=0;
+      while(a===0&&attempt++<20){you=roll(3);a=cLoRank(you);}
+      attempt=0;while(d===0&&attempt++<20){bot=roll(3);d=cLoRank(bot);}
+      const diff=a-d,payout=diff>0?bet*2:diff===0?bet:0;
+      s={bet,you,bot};finish("You rolled "+you.join(" · ")+" ("+a.toFixed(2)+"), bot rolled "+bot.join(" · ")+" ("+d.toFixed(2)+"). "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),payout);
+    } else if(mode==="bunco"&&b.dataset.act==="bunco"){
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,target:1,turn:0,youScore:0,botScore:0,dice:[],done:false};}
+      s.target=(s.turn%6)+1;
+      const your=[];
+      for(let i=0;i<3;i++){const d=roll(3);your.push(d);if(d.every(x=>x===s.target))s.youScore+=21;else s.youScore+=d.filter(x=>x===s.target).length*1;}
+      const bot=[];
+      for(let i=0;i<3;i++){const d=roll(3);bot.push(d);if(d.every(x=>x===s.target))s.botScore+=21;else s.botScore+=d.filter(x=>x===s.target).length*1;}
+      s.dice=your[2];s.turn++;
+      if(s.turn>=6){const diff=s.youScore-s.botScore;finish("Bunco round complete. You "+s.youScore+" · Bot "+s.botScore+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;}
+      s.message="Round "+s.turn+" score: You "+s.youScore+" · Bot "+s.botScore+". Target was "+s.target+".";
+      render();
+    } else if(mode==="ship"&&b.dataset.act==="ship"){
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,dice:roll(5),holds:[],rolls:1,done:false};}
+      else if(s.rolls<3){
+        const desired=[6,5,4],need=desired[s.holds.length];
+        const ix=s.dice.indexOf(need);
+        if(ix>=0&&!s.holds.includes(ix))s.holds.push(ix);
+        if(s.holds.length===3){const cargo=s.dice.filter((d,i)=>!s.holds.includes(i)),bot=botShip(),botCargo=bot.cargo;s.cargo=sum(cargo);const diff=s.cargo-botCargo;finish("Your ship 6-5-4 cargo: "+s.cargo+". Bot cargo: "+botCargo+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;}
+        const remaining=s.dice.filter((d,i)=>!s.holds.includes(i)).length;
+        s.dice=s.dice.map((d,i)=>s.holds.includes(i)?d:roll(1)[0]);s.rolls++;s.message="Locked "+s.holds.length+" of 3 ship pieces. Roll again.";
+      } else {
+        const cargo=s.holds.length===3?sum(s.dice.filter((d,i)=>!s.holds.includes(i))):0;
+        const bot=botShip(),botCargo=bot.cargo,diff=cargo-botCargo;finish("Your cargo "+cargo+" · Bot cargo "+botCargo+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;
+      }
+      render();
+    } else if(mode==="pig"){
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,youTotal:0,botTotal:0,turnScore:0,die:0,done:false};}
+      if(b.dataset.act==="pigroll"){
+        s.die=roll(1)[0];
+        if(s.die===1){s.turnScore=0;const botTurn=()=>{let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}s.botTotal+=score;};botTurn();s.message="You rolled 1 and lost your turn. Bot scored. New turn begins.";s.youTotal+=0;}
+        else s.turnScore+=s.die;
+        if(s.youTotal+s.turnScore>=100){finish("You reached 100. You win.",s.bet*2);return;}
+        const botTurn=()=>{let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}return score;};
+        if(s.die===1){s.botTotal+=botTurn();}
+        render();
+      } else if(b.dataset.act==="pigbank"){
+        s.youTotal+=s.turnScore;s.turnScore=0;
+        if(s.youTotal>=100){finish("You reached 100. You win.",s.bet*2);return;}
+        let score=0;while(score<20){const d=roll(1)[0];if(d===1){score=0;break;}score+=d;}
+        s.botTotal+=score;if(s.botTotal>=100){finish("Bot reached 100 first.",0);return;}
+        s.message="You banked. Bot turn scored "+score+". Your total "+s.youTotal+" · bot "+s.botTotal+".";
+        render();
+      } else render();
+    } else if(mode==="shutbox"){
+      if(!s||s.done){const bet=start();if(bet===null)return;s={bet,tiles:[1,2,3,4,5,6,7,8,9],selected:[],dice:[],bot:shutBotTurn([1,2,3,4,5,6,7,8,9]),done:false};}
+      if(b.dataset.act==="boxroll"){
+        const count=s.tiles.reduce((a,b)=>a+b,0)<=6?1:2;s.dice=roll(count);s.target=sum(s.dice);s.selected=[];s.message="Roll total "+s.target+". Choose open tiles that sum exactly to it.";render();return;
+      } else if(b.dataset.tile){
+        const tile=Number(b.dataset.tile);s.selected=s.selected.includes(tile)?s.selected.filter(x=>x!==tile):s.selected.concat([tile]);s.message="Selected sum: "+sum(s.selected)+" / Target: "+(s.target||0);render();return;
+      } else if(b.dataset.act==="boxclose"){
+        if(sum(s.selected)!==s.target){c.status("Selected tiles must equal the dice total.","loss");return;}
+        for(const tile of s.selected){const i=s.tiles.indexOf(tile);if(i>=0)s.tiles.splice(i,1);}
+        s.selected=[];if(!s.tiles.length){finish("You shut the box! Bot score "+s.bot.score+".",s.bet*2);return;}
+        s.message="Tiles closed. Roll again.";
+      } else if(b.dataset.act==="boxbank"){
+        const score=s.tiles.reduce((a,b)=>a+b,0),bot=s.bot.score,diff=bot-score;
+        finish("Your remaining total "+score+" · Bot remaining total "+bot+". "+(diff>0?"You win.":diff===0?"Push.":"Bot wins."),diff>0?s.bet*2:diff===0?s.bet:0);return;
+      }
+      render();
+    } else if(b.dataset.act==="highlow"){
+      const bet=start();if(bet===null)return;const dice=roll(3),n=sum(dice),pick=s&&s.pick||"high",win=pick==="high"?n>=11:n<=10;s={bet,dice,pick};finish("Rolled "+n+". "+(win?"Your "+pick+" call wins.":"Your "+pick+" call loses."),win?bet*2:0);
     }
-  });
-  render();return {close:()=>{if(s&&!s.done&&s.bet)wallet.settle(s.bet,0,game.name);},destroy:off};
+  }
+  const off=c.bind(action);render();
+  return {close:()=>{if(s&&!s.done&&s.bet)wallet.settle(s.bet,0,game.name);},destroy:off};
 }
 function mountWheel(game,root,wallet){
   const c=common(game,root,wallet),mode=game.mode;let s=null,timer=null;
