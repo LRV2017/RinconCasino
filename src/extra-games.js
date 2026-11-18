@@ -1,3 +1,4 @@
+import { mountArena3D } from "./arena3d.js";
 const SUITS=["♠","♥","♦","♣"];
 const RANKS="23456789TJQKA";
 const COLORS=["🟥","🟦","🟩","🟨","🟪","🟧"];
@@ -247,7 +248,7 @@ function mountDiceSideBet(game,root,wallet,mode){
 }
 
 function mountBingo(game,root,wallet){
-  const c=makeGame(game,root,wallet);let s=null;
+  const c=makeGame(game,root,wallet);let s=null,arena=null;
   function newCard(){
     const colRanges=[[1,15],[16,30],[31,45],[46,60],[61,75]];
     const cols=colRanges.map(([a,b])=>{const nums=Array.from({length:b-a+1},(_,i)=>a+i);for(let i=nums.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}return nums.slice(0,5).sort((x,y)=>x-y);});
@@ -258,7 +259,12 @@ function mountBingo(game,root,wallet){
   function render(status="Start a round and draw numbered balls.",type=""){
     const cardHTML=s?s.player.grid.map((row,r)=>row.map((n,col)=>{const id=r*5+col;return '<div class="board-cell '+(s.player.marked.has(id)?"selected":"")+'" style="width:42px;height:42px;display:grid;place-items:center;font-size:12px">'+(n||"FREE")+'</div>';}).join("")).join(""):'';
     const body=s?'<div class="tiny-note">B I N G O · DRAWN BALLS: '+s.drawn.length+' / 75 · HOUSE CARDS: '+s.bots.map(b=>b.marked.size-1).join(" / ")+'</div><div class="board-grid" style="grid-template-columns:repeat(5,42px);gap:4px">'+cardHTML+'</div><div class="action-row"><button class="game-action primary" data-act="draw" '+(s.done?"disabled":"")+' >Draw next ball</button><button class="game-action secondary" data-act="auto" '+(s.done?"disabled":"")+' >Draw until winner</button></div><div class="tiny-note">LATEST: '+(s.drawn.length?s.drawn[s.drawn.length-1]:"—")+'</div>':'<div class="table-felt"><h3>75-ball Bingo</h3><p class="muted">A real 5×5 B-I-N-G-O card with a free centre, unique numbered balls and three house cards competing for a line.</p><button class="game-action primary" data-act="start">Buy card & start</button></div>';
-    c.page(c.betInput()+body,status,type);
+    c.page(c.betInput()+'<section class="arena3d-stage" aria-label="Interactive 3D bingo table"></section>'+body,status,type);
+    const players=[{name:"You",human:true,score:s?s.player.marked.size-1:0},...["Rico","Maya","Ace"].map((name,i)=>({name,score:s?s.bots[i].marked.size-1:0,status:s?"PLAYING":"READY"}))];
+    const numberGrid=s?s.player.grid.map(row=>row.map(n=>n||"FREE")):Array.from({length:5},()=>Array(5).fill("BINGO"));
+    const numberMarked=s?Array.from({length:5},(_,r)=>Array.from({length:5},(_,col)=>s.player.marked.has(r*5+col))):null;
+    const sceneConfig={kind:"board",title:"75-Ball Bingo",players,numberGrid,numberMarked,centerText:s?"BALLS · "+s.drawn.length+" / 75":"BINGO · TAKE YOUR SEAT",pieces:s?s.drawn.slice(-18).map((n)=>({color:0xc7a65f,label:n})):[]};
+    if(!arena)arena=mountArena3D(root,sceneConfig);else arena.update(sceneConfig);
   }
   function drawOne(){
     if(s.done)return;
@@ -266,9 +272,9 @@ function mountBingo(game,root,wallet){
     s.drawn.push(ball);
     for(const card of [s.player,...s.bots])for(let i=0;i<25;i++)if(card.grid[Math.floor(i/5)][i%5]===ball)card.marked.add(i);
     const playerWin=bingo(s.player),botWin=s.bots.some(bingo);
-    if(playerWin&&botWin){s.done=true;c.settle(s.bet,s.bet,"Bingo tie — player and house complete a line on the same ball.");return;}
-    if(playerWin){s.done=true;c.settle(s.bet,s.bet*4,"BINGO! You complete a line on ball "+ball+".");return;}
-    if(botWin){s.done=true;c.settle(s.bet,0,"A house card called Bingo first on ball "+ball+".");return;}
+    if(playerWin&&botWin){s.done=true;c.settle(s.bet,s.bet,"Bingo tie — player and house complete a line on the same ball.");render("Bingo tie on ball "+ball+".");return;}
+    if(playerWin){s.done=true;c.settle(s.bet,s.bet*4,"BINGO! You complete a line on ball "+ball+".");render("BINGO! You win on ball "+ball+".","win");return;}
+    if(botWin){s.done=true;c.settle(s.bet,0,"A house card called Bingo first on ball "+ball+".");render("A bot called Bingo on ball "+ball+".","loss");return;}
     render("Ball "+ball+" drawn. No line yet.");
   }
   c.bind(e=>{
@@ -277,11 +283,14 @@ function mountBingo(game,root,wallet){
     else if(s&&!s.done&&a==="draw")drawOne();
     else if(s&&!s.done&&a==="auto"){for(let i=0;i<75&&!s.done;i++)drawOne();}
   });
-  render();return c;
+  render();const baseClose=c.close,baseDestroy=c.destroy;
+  c.close=()=>{baseClose();arena?.destroy();};
+  c.destroy=()=>{baseDestroy();arena?.destroy();};
+  return c;
 }
 
 function mountMancala(game,root,wallet){
-  const c=makeGame(game,root,wallet);let s=null;
+  const c=makeGame(game,root,wallet);let s=null,arena=null;
   const initial=()=>({pits:[4,4,4,4,4,4,0,4,4,4,4,4,4,0],turn:"you",done:false});
   function moves(pos,side){return side==="you"?[0,1,2,3,4,5].filter(i=>pos.pits[i]>0):[7,8,9,10,11,12].filter(i=>pos.pits[i]>0);}
   function sweep(pos){
@@ -313,7 +322,10 @@ function mountMancala(game,root,wallet){
   }
   function render(status="Choose one of your six pits.",type=""){
     const body=s?'<div class="tiny-note">HOUSE BOT · TOP ROW · YOU · BOTTOM ROW</div><div class="table-seats"><div class="seat"><small>HOUSE STORE</small><strong>'+s.pits[13]+'</strong></div><div class="seat"><small>YOUR STORE</small><strong>'+s.pits[6]+'</strong></div></div><div class="board-grid" style="grid-template-columns:repeat(6,minmax(40px,1fr));max-width:520px"><div style="grid-column:span 6;display:grid;grid-template-columns:repeat(6,1fr);gap:5px">'+[12,11,10,9,8,7].map(i=>'<div class="seat"><small>'+s.pits[i]+'</small><strong>●</strong></div>').join("")+'</div><div style="grid-column:span 6;display:grid;grid-template-columns:repeat(6,1fr);gap:5px">'+[0,1,2,3,4,5].map(i=>'<button class="game-action '+(s.turn==="you"?"primary":"secondary")+'" data-pit="'+i+'" '+(s.done||s.turn!=="you"||s.pits[i]===0?"disabled":"")+'>'+s.pits[i]+' stones</button>').join("")+'</div></div>':'<div class="table-felt"><h3>Mancala (Kalah)</h3><p class="muted">Sow stones counter-clockwise, capture opposite pits when your last stone lands in an empty pit, and take an extra turn when you land in your store. The house bot searches several moves ahead.</p><button class="game-action primary" data-act="start">Start match</button></div>';
-    c.page(c.betInput()+body,status,type);
+    c.page(c.betInput()+'<section class="arena3d-stage" aria-label="Interactive 3D Mancala board"></section>'+body,status,type);
+    const players=[{name:"You",human:true,score:s?s.pits[6]:0,status:s&&s.turn==="you"?"YOUR TURN":"PLAYER"},{name:"HAL",score:s?s.pits[13]:0,status:s&&s.turn==="bot"?"THINKING":"CPU"}];
+    const sceneConfig={kind:"board",title:"Mancala",players,pits:s?s.pits:initial().pits,centerText:s?(s.turn==="you"?"YOUR TURN":"BOT THINKING"):"KALAH"};
+    if(!arena)arena=mountArena3D(root,sceneConfig);else arena.update(sceneConfig);
   }
   function start(){const bet=c.takeBet();if(!bet)return;s={...initial(),bet};render("Your move.");}
   function click(e){
@@ -325,7 +337,10 @@ function mountMancala(game,root,wallet){
     while(s.turn==="bot"&&!s.done){const move=botMove(s,5).move;if(move===null)break;s=apply(s,move);}
     if(s.done){finish();return;}render("House bot moved. Your turn.");
   }
-  c.bind(click);render("Start a match.");return c;
+  c.bind(click);render("Start a match.");const baseClose=c.close,baseDestroy=c.destroy;
+  c.close=()=>{baseClose();arena?.destroy();};
+  c.destroy=()=>{baseDestroy();arena?.destroy();};
+  return c;
 }
 
 function mountMastermind(game,root,wallet){
