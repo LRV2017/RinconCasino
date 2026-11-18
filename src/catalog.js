@@ -64,4 +64,7 @@ add("Memory Match","Puzzle & Classics","extra","memory-match","▣","Find eight 
 add("Minesweeper","Puzzle & Classics","extra","minesweeper","✹","Clear a 9×9 logic grid without revealing any of its ten mines.","Number clues show adjacent mines. Flag suspected mines and reveal all 71 safe squares to win.");
 add("Klondike Solitaire","Puzzle & Classics","extra","klondike","♠","Classic seven-column solitaire with stock, waste and four foundations.","Build descending alternating-colour tableau sequences and suit foundations from Ace through King.");
 
+add("Russian Roulette","Party Games","extra","russian-roulette","🎲","A four-seat local-bot survival game with one hidden danger token in each six-token chamber.","Take turns revealing sealed tokens. A danger marker costs a life; last player remaining wins.");
+add("Devil’s Chamber","Party Games","extra","devils-chamber","😈","A tense four-seat bluff-and-risk party game with hidden outcomes, limited gadgets and smart local rivals.","Choose yourself or another player as the target. Use the Demon Lens to peek and the Soul Ward to block one hit; a safe self-target earns another turn.");
+
 export {gameCatalog};
