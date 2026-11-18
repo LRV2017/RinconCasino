@@ -530,8 +530,9 @@ function mountChamberGame(game,root,wallet,devilsMode=false){
     }));
   }
   function sceneConfig(){
+    const roster=s?s.players:makePlayers();
     return {
-      kind:"dice",title:game.name,players:scenePlayers(),
+      kind:"dice",title:game.name,players:roster.map((p,i)=>({name:p.name,human:!!p.human,score:p.hp,status:!p.alive?"OUT":s&&i===s.turn?"YOUR TURN":p.shield?"WARD READY":p.stun?"STUNNED":"IN THE GAME"})),
       centerText:devilsMode?"DEMON'S DEAL":"RUSSIAN ROULETTE",
       chamber:{current:s?s.index:0,display:s?chamberInfo():Array(6).fill("UNKNOWN"),liveCount},
       pieces:devilsMode&&s?[
@@ -614,8 +615,7 @@ function mountChamberGame(game,root,wallet,devilsMode=false){
     if(alive().length<=1){finish();return;}
     if(s.index>=6)reload();
     if(loaded||target!==shooter)s.turn=nextAlive(s.players.indexOf(shooter));
-    runBots();
-    render();
+    if(s.scanFor===s.players.indexOf(shooter)){s.scanFor=null;s.scanValue=null;}
   }
   function botTakeTurn(bot){
     if(bot.stun>0){bot.stun--;s.history.push(bot.name+" loses a turn to a Hex.");s.turn=nextAlive(s.turn);return;}
@@ -636,7 +636,7 @@ function mountChamberGame(game,root,wallet,devilsMode=false){
   }
   function runBots(){
     let guard=0;
-    while(s&&!s.done&&s.turn!==0&&guard++<12){
+    while(s&&!s.done&&s.turn!==0&&guard++<60){
       const bot=current();
       if(!bot||!bot.alive){s.turn=nextAlive(s.turn);continue;}
       botTakeTurn(bot);
@@ -656,7 +656,9 @@ function mountChamberGame(game,root,wallet,devilsMode=false){
     const player=s.players[0];
     if(b.dataset.act==="pull"){
       const target=devilsMode?Number(root.querySelector("#rrTarget")?.value||0):0;
-      fire(player,target);return;
+      fire(player,target);
+      if(!s.done){runBots();render();}
+      return;
     }
     if(!devilsMode)return;
     if(b.dataset.act==="oracle"&&player.items.oracle>0){
