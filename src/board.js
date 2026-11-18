@@ -1,3 +1,4 @@
+import { mountChess } from "./chess.js";
 function stakeBar(){
   return '<div class="bet-controls"><label for="stake">MATCH STAKE</label><input class="bet-input" id="stake" type="number" min="10" step="10" value="25"><span class="tiny-note">Winner earns 2× the stake</span><button class="game-action primary" data-act="start">Start match</button></div>';
 }
@@ -162,6 +163,7 @@ function dotsSafeMove(s){
   candidates.sort((a,b)=>a.danger-b.danger);return candidates[0];
 }
 function mountBoard(game,root,wallet){
+  if(game.mode==="chess")return mountChess(game,root,wallet);
   const mode=game.mode||"ttt",isTtt=mode==="ttt",isC4=mode==="connect4",isRev=mode==="reversi",isGomoku=mode==="gomoku",isShips=mode==="battleship",isCheck=mode==="checkers",isNim=mode==="nim",isDots=mode==="dots";
   let s=null,stake=0,done=false,status="";
   const setResult=(m,t)=>{status=m;const el=root.querySelector("#boardResult");if(el){el.textContent=m;el.className="result-banner"+(t?" "+t:"");}};
