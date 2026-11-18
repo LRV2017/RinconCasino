@@ -682,6 +682,198 @@ function mountChamberGame(game,root,wallet,devilsMode=false){
   return c;
 }
 
+
+function shuffleChamber(tokens){
+  const bag=tokens.slice();
+  for(let i=bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]];}
+  return bag;
+}
+function living(players){return players.filter(p=>p.lives>0);}
+function nextLiving(players,from){
+  for(let step=1;step<=players.length;step++){
+    const i=(from+step)%players.length;
+    if(players[i].lives>0)return i;
+  }
+  return from;
+}
+function renderSeats(players,current,devil=false){
+  return '<div class="table-seats">'+players.map((p,i)=>'<div class="seat '+(i===current?'active-seat':'')+(p.lives<=0?' folded-seat':'')+'"><small>'+(p.you?'YOU':p.name)+(i===current&&p.lives>0?' · TURN':'')+'</small><strong>'+(p.lives>0?'♥ '.repeat(p.lives):'OUT')+'</strong><span class="tiny-note">'+(devil?'LENS '+(p.scan>0?'READY':'USED')+' · WARD '+(p.ward>0?'READY':p.wardActive?'ACTIVE':'USED'):'IN THE GAME')+'</span></div>').join("")+'</div>';
+}
+function mountRussianRoulette(game,root,wallet){
+  const c=makeGame(game,root,wallet);let s=null;
+  const roster=()=>[{name:"YOU",you:true,lives:2},{name:"Rico",lives:2},{name:"Maya",lives:2},{name:"Ace",lives:2}];
+  function render(message="Place your stake and join the table.",type=""){
+    const body=s?
+      '<div class="tiny-note">FOUR SEATS · ONE HIDDEN DANGER TOKEN IN EACH SIX-TOKEN CHAMBER</div>'+
+      renderSeats(s.players,s.turn)+
+      '<div class="table-felt"><h3>THE SEALED CHAMBER</h3><p class="muted">Take your turn to reveal one fate token. A safe token passes play onward. A danger token costs the active player a life. The last player remaining wins.</p>'+
+      '<div class="score-card"><strong>'+s.bag.length+'</strong><span>SEALED TOKENS REMAIN</span></div>'+
+      '<div class="action-row"><button class="game-action primary" data-act="pull" '+(s.done||s.turn!==0?'disabled':'')+'>Reveal your fate</button></div></div>'+
+      '<div class="tiny-note">RECENT TABLE EVENTS</div><div class="aside-card">'+s.log.slice(-4).map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>'
+      :'<div class="table-felt"><h3>Russian Roulette</h3><p class="muted">A non-graphic, fictional chance game. Four local seats, two lives each, and a sealed six-token chamber with one danger marker. No real-world weapon handling is depicted or required.</p><div class="action-row"><button class="game-action primary" data-act="start">Join the table</button></div></div>';
+    c.page(c.betInput()+body,message,type);
+  }
+  function finish(message,payout){
+    s.done=true;render(message,payout?"win":"loss");c.settle(s.bet,payout,message);
+  }
+  function loadChamber(){s.bag=shuffleChamber(["danger","safe","safe","safe","safe","safe"]);s.chambers++;}
+  function checkWinner(){
+    const alive=living(s.players);
+    if(alive.length===1){
+      const winner=alive[0],won=winner.you;
+      finish(won?"You outlast the table. You win the pot!":winner.name+" is the last player standing.",won?s.bet*4:0);
+      return true;
+    }
+    return false;
+  }
+  function pull(player){
+    if(!s.bag.length)loadChamber();
+    const token=s.bag.pop();
+    if(token==="danger"){
+      player.lives--;
+      s.log.push(player.you?"Your token was the danger marker. You lose one life.":player.name+" drew the danger marker and lost one life.");
+      loadChamber();
+    }else s.log.push((player.you?"You":player.name)+" revealed a safe token.");
+    if(player.lives<=0)s.log.push((player.you?"You are out of the game.":player.name+" is out of the game."));
+    return checkWinner();
+  }
+  function botsPlay(){
+    let guard=0;
+    while(!s.done&&s.turn!==0&&guard++<24){
+      const bot=s.players[s.turn];
+      pull(bot);
+      if(s.done)return;
+      s.turn=nextLiving(s.players,s.turn);
+    }
+    if(!s.done&&guard>=24)finish("The table reached its safety limit. Round voided and stake returned.",s.bet);
+    render(s.done?s.log[s.log.length-1]:"Your turn. The bots have played.",s.done?"loss":"");
+  }
+  function start(){
+    if(s&&!s.done)return;
+    const bet=c.takeBet();if(!bet)return;
+    s={bet,players:roster(),turn:0,bag:[],chambers:0,log:[],done:false};
+    c.state=s;loadChamber();render("The table is ready. You act first.");
+  }
+  c.bind(e=>{
+    const act=e.target.closest("[data-act]")?.dataset.act;if(!act)return;
+    if(act==="start"||act==="again"){start();return;}
+    if(!s||s.done||s.turn!==0||act!=="pull")return;
+    if(pull(s.players[0]))return;
+    s.turn=nextLiving(s.players,0);
+    botsPlay();
+  });
+  render();return c;
+}
+function mountDevilsChamber(game,root,wallet){
+  const c=makeGame(game,root,wallet);let s=null;
+  const profiles=[
+    {name:"Rico",style:"CAUTIOUS",risk:.22},
+    {name:"Maya",style:"TACTICAL",risk:.42},
+    {name:"Ace",style:"AGGRESSIVE",risk:.7}
+  ];
+  function roster(){return [{name:"YOU",you:true,lives:3,scan:1,ward:1,wardActive:false},...profiles.map(p=>({...p,lives:3,scan:1,ward:1,wardActive:false}))];}
+  function reload(){s.bag=shuffleChamber(["danger","danger","safe","safe","safe","safe"]);s.chambers++;}
+  function targetOptions(){
+    return s.players.map((p,i)=>p.lives>0?'<option value="'+i+'">'+(p.you?"Yourself":p.name)+'</option>':"").join("");
+  }
+  function render(message="Choose a target, use a gadget, or take your turn.",type=""){
+    const body=s?
+      '<div class="tiny-note">THE PIT · FOUR LOCAL PLAYERS · THREE LIVES EACH · TWO DANGER MARKERS PER CHAMBER</div>'+
+      renderSeats(s.players,s.turn,true)+
+      '<div class="table-felt"><h3>THE DEVIL’S CHAMBER</h3><p class="muted">Aim your risk at yourself to earn another turn on a safe draw, or challenge another seat. A danger marker costs its target a life. The Lens can peek at the next token; a Ward blocks one danger hit.</p>'+
+      '<div class="score-card"><strong>'+s.bag.length+'</strong><span>SEALED TOKENS LEFT · '+s.chambers+' CHAMBERS</span></div>'+
+      '<div class="bet-controls"><label for="devilTarget">TARGET</label><select class="bet-input" id="devilTarget">'+targetOptions()+'</select></div>'+
+      '<div class="action-row"><button class="game-action secondary" data-act="scan" '+(s.players[0].scan<=0||s.done||s.turn!==0?'disabled':'')+'>Use Demon Lens · '+s.players[0].scan+'</button>'+
+      '<button class="game-action secondary" data-act="ward" '+(s.players[0].ward<=0||s.players[0].wardActive||s.done||s.turn!==0?'disabled':'')+'>Activate Soul Ward · '+s.players[0].ward+'</button>'+
+      '<button class="game-action primary" data-act="pull" '+(s.done||s.turn!==0?'disabled':'')+'>Take the risk</button></div>'+
+      (s.hint?'<div class="result-banner">Demon Lens: next token is '+(s.hint==="danger"?"DANGER":"SAFE")+'.</div>':"")+
+      '</div><div class="tiny-note">RECENT TABLE EVENTS</div><div class="aside-card">'+s.log.slice(-5).map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>'
+      :'<div class="table-felt"><h3>Devil’s Chamber</h3><p class="muted">An original local-bot party game inspired by high-pressure VR roulette: hidden danger markers, target choices, repeat-turn gambles, and limited gadgets. No online rooms yet.</p><div class="action-row"><button class="game-action primary" data-act="start">Enter the Pit</button></div></div>';
+    c.page(c.betInput()+body,message,type);
+  }
+  function finish(message,payout){
+    s.done=true;render(message,payout?"win":"loss");c.settle(s.bet,payout,message);
+  }
+  function checkWinner(){
+    const alive=living(s.players);
+    if(alive.length===1){
+      const winner=alive[0],won=winner.you;
+      finish(won?"You survive The Pit and claim the pot!":winner.name+" wins The Pit.",won?s.bet*4:0);
+      return true;
+    }
+    return false;
+  }
+  function drawFor(actor,target,hint=null){
+    if(!s.bag.length)reload();
+    const token=s.bag.pop();
+    if(token==="danger"){
+      if(target.wardActive){target.wardActive=false;s.log.push(target.you?"Your Soul Ward absorbs the danger marker.":target.name+"'s Soul Ward absorbs the danger marker.");}
+      else{target.lives--;s.log.push((actor.you?"You":actor.name)+" targeted "+(target.you?"you":target.name)+" and hit a danger marker. "+(target.you?"You lose a life.":target.name+" loses a life."));}
+    }else{
+      s.log.push((actor.you?"You":actor.name)+" drew a safe token while targeting "+(target.you?"themself":target.name)+".");
+    }
+    if(target.lives<=0)s.log.push((target.you?"You":target.name)+" is out of The Pit.");
+    if(!s.bag.length)reload();
+    return {token,extra:token==="safe"&&target===actor};
+  }
+  function botsPlay(){
+    let guard=0;
+    while(!s.done&&s.turn!==0&&guard++<30){
+      const actor=s.players[s.turn],alive=living(s.players);
+      if(actor.scan>0&&Math.random()<.55){
+        actor.scan--;actor.hint=s.bag[s.bag.length-1]||"";
+      }
+      let target=actor,known=actor.hint||null;actor.hint=null;
+      const rivals=alive.filter(p=>p!==actor).sort((a,b)=>a.lives-b.lives);
+      if(known==="danger"&&rivals.length)target=rivals[0];
+      else if(known==="safe"&&Math.random()<.65)target=actor;
+      else if(rivals.length&&Math.random()<actor.risk)target=rivals[0];
+      if(target===actor&&actor.ward>0&&known==="danger"){actor.ward--;actor.wardActive=true;}
+      const result=drawFor(actor,target,known);
+      if(checkWinner())return;
+      s.turn=result.extra&&actor.lives>0?s.turn:nextLiving(s.players,s.turn);
+    }
+    if(!s.done&&guard>=30)finish("The Pit reached its safety limit. Stake returned.",s.bet);
+    render(s.done?"The round is complete.":"Your turn. Choose your move.");
+  }
+  function start(){
+    if(s&&!s.done)return;
+    const bet=c.takeBet();if(!bet)return;
+    s={bet,players:roster(),turn:0,bag:[],chambers:0,hint:null,log:[],done:false};
+    c.state=s;reload();render("The Pit is open. You act first.");
+  }
+  c.bind(e=>{
+    const act=e.target.closest("[data-act]")?.dataset.act;if(!act)return;
+    if(act==="start"||act==="again"){start();return;}
+    if(!s||s.done||s.turn!==0)return;
+    if(act==="scan"){
+      const me=s.players[0];
+      if(me.scan<=0)return;
+      if(!s.bag.length)reload();
+      me.scan--;s.hint=s.bag[s.bag.length-1];
+      render("Demon Lens: the next token is "+(s.hint==="danger"?"DANGER":"SAFE")+".");
+      return;
+    }
+    if(act==="ward"){
+      const me=s.players[0];
+      if(me.ward<=0||me.wardActive)return;
+      me.ward--;me.wardActive=true;
+      render("Soul Ward activated. It will block one danger marker aimed at you.");
+      return;
+    }
+    if(act==="pull"){
+      const chosen=Number(root.querySelector("#devilTarget")?.value||0);
+      const target=s.players[chosen];
+      if(!target||target.lives<=0){c.message("Choose a player who is still in The Pit.","loss");return;}
+      const outcome=drawFor(s.players[0],target,s.hint);s.hint=null;
+      if(checkWinner())return;
+      if(outcome.extra&&s.players[0].lives>0){render("Safe self-target! You earned another turn.");return;}
+      s.turn=nextLiving(s.players,0);botsPlay();
+    }
+  });
+  render();return c;
+}
+
 export function mountExtraGame(game,root,wallet){
   switch(game.mode){
     case "three-card-poker":return mountThreeCardPoker(game,root,wallet);
@@ -700,6 +892,8 @@ export function mountExtraGame(game,root,wallet){
     case "memory-match":return mountMemory(game,root,wallet);
     case "minesweeper":return mountMinesweeper(game,root,wallet);
     case "klondike":return mountKlondike(game,root,wallet);
+    case "russian-roulette":return mountRussianRoulette(game,root,wallet);
+    case "devils-chamber":return mountDevilsChamber(game,root,wallet);
     default:root.innerHTML='<div class="result-banner">This game mode is not available.</div>';return {close:()=>{},destroy:()=>{}};
   }
 }
