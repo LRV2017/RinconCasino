@@ -520,7 +520,7 @@ function mountDice(game,root,wallet){
       const actualCount=(face)=>s.mine.concat(...s.bots).filter(d=>d===face).length;
       const faceRank=face=>face===1?6:face-1;
       const probabilityAtLeast=(known,face,totalNeeded)=>{
-        const needed=totalNeeded-s.mine.filter(d=>d===face).length;
+        const needed=totalNeeded-known.filter(d=>d===face).length;
         if(needed<=0)return 1;if(needed>15)return 0;
         let probability=0;
         for(let k=needed;k<=15;k++){
@@ -541,7 +541,6 @@ function mountDice(game,root,wallet){
         for(let i=0;i<3;i++){
           const seat=i+1,dice=s.bots[i],bid=s.lastBid;
           const own=dice.filter(d=>d===bid.face).length;
-          const unseenExpected=15/6;
           const truthProbability=probabilityAtLeast(dice,bid.face,bid.count);
           const challengeThreshold=[.2,.28,.16][i];
           if(truthProbability<challengeThreshold){
