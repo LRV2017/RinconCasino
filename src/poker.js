@@ -84,7 +84,8 @@ const BOT_PROFILES=[
   {name:"Rico",style:"TIGHT",loose:.02,aggression:.22,skill:.03},
   {name:"Maya",style:"BALANCED",loose:.09,aggression:.42,skill:.06},
   {name:"Ace",style:"AGGRESSIVE",loose:.16,aggression:.72,skill:.08},
-  {name:"Nova",style:"TRICKY",loose:.11,aggression:.56,skill:.12}
+  {name:"Nova",style:"TRICKY",loose:.11,aggression:.56,skill:.12},
+  {name:"Jax",style:"CALLING STATION",loose:.2,aggression:.18,skill:.02}
 ];
 export function mountPoker(game,root,wallet) {
   const isOmaha=game.name.toLowerCase().includes("omaha");
