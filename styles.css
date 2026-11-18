@@ -53,3 +53,17 @@
  .arena3d-fallback-avatar{width:24px;height:24px}
  .poker-seats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Russian Roulette / Demon's Deal party survival UI */
+.chamber-hud{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:13px auto;padding:10px 13px;border:1px solid #77613e;border-radius:7px;background:#101811;color:#e3d3a0;font:10px var(--mono);letter-spacing:.1em}
+.chamber-hud span{white-space:nowrap}
+.chamber-game-intro{display:grid;gap:12px}
+.chamber-game-intro .arena3d-stage{margin-bottom:4px}
+.chamber-game-intro .table-felt{max-width:720px;margin:0 auto}
+#extraResult.win{border-color:#6b9155;color:#cee5af}
+#extraResult.loss{border-color:#895048;color:#e6b8aa}
+@media(max-width:760px){
+ .chamber-hud{gap:7px;font-size:8px;padding:9px 7px}
+ .chamber-hud span{flex:1 1 28%;text-align:center}
+}
