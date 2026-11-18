@@ -93,6 +93,9 @@ function mountRoulette(game,root,wallet){
       if(pick==="number"&&last&&String(last.pick)===(pocket===37?"00":String(pocket))){won=true;mult=36;desc="Straight-up hit! "+(pocket===37?"00":pocket)+" pays 35:1.";}
       else if(pick==="red"||pick==="black"){won=pick===color;mult=2;}
       else if(pick==="green"){won=color==="green";mult=american?18:36;}
+      const french=game.name.toLowerCase().includes("french")||game.name.toLowerCase().includes("la partage")||game.name.toLowerCase().includes("en prison");
+      const partage=french&&color==="green"&&["red","black","odd","even","low","high"].includes(pick);
+      if(partage){payout=won?bet*2:0;}
       else if(pick==="odd"||pick==="even"){won=pocket!==0&&pocket!==37&&(pick==="odd"?pocket%2===1:pocket%2===0);mult=2;}
       else if(pick==="low"||pick==="high"){won=pocket>=1&&pocket<=36&&(pick==="low"?pocket<=18:pocket>=19);mult=2;}
       if(won)desc=(pocket===37?"00":pocket)+" "+color+" — winning bet!";
@@ -286,10 +289,11 @@ function mountDice(game,root,wallet){
       }
       render();
     } else if(b.dataset.act==="roll"){
+      if(s&&s.done)s=null;
       const bet=c.charge();if(bet===null)return;const dice=roll(3),sum=dice.reduce((a,x)=>a+x,0),pick=s&&s.pick||"high",win=pick==="high"?sum>=11:sum<=10,payout=win?bet*2:0;s={dice,pick,win,message:"Rolled "+sum+". "+(win?"Your "+pick+" call wins.":"Your "+pick+" call loses.")};finishDice(bet,payout,s.message);
     }
   });
-  render();return {close:()=>{},destroy:off};
+  render();return {close:()=>{if(s&&!s.done&&s.bet)wallet.settle(s.bet,0,game.name);},destroy:off};
 }
 function mountWheel(game,root,wallet){
   const c=common(game,root,wallet),mode=game.mode;let s=null,timer=null;
