@@ -1,3 +1,4 @@
+import { mountArena3D } from "./arena3d.js";
 const FILES="abcdefgh";
 const PIECE_VALUE={p:100,n:320,b:335,r:500,q:900,k:20000};
 const KNIGHT_STEPS=[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
@@ -186,7 +187,7 @@ function notation(before,move,after){
 }
 const GLYPHS={K:"♔",Q:"♕",R:"♖",B:"♗",N:"♘",P:"♙",k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"};
 function mountChess(game,root,wallet){
-  let position=null,stake=0,done=false,selected=null,message="Start a game, then move the white pieces.";
+  let position=null,stake=0,done=false,selected=null,message="Start a game, then move the white pieces.",arena=null;
   let history=[];
   function settle(winner,text){
     if(done)return;done=true;const payout=winner==="you"?stake*2:winner==="draw"?stake:0;
@@ -244,9 +245,12 @@ function mountChess(game,root,wallet){
       }).join("")).join("")+'</div><div class="tiny-note">YOU PLAY WHITE · HOUSE BOT PLAYS BLACK</div>';
     } else boardHTML='<div class="table-felt"><div class="playing-cards" style="font-size:45px">'+symbols.slice(0,4).join(" ")+'</div><h3>64 squares. One opponent.</h3><p class="muted">The CPU searches legal continuations and evaluates material and piece activity.</p></div>';
     const moveList=history.slice(-12).map((m,i)=>'<div class="session-history-item"><span>'+(i+1)+'. '+m+'</span></div>').join("");
-    root.innerHTML=intro+buy+boardHTML+'<div class="result-banner">'+message+'</div>'+(history.length?'<div class="aside-card" style="max-width:520px;margin:14px auto"><small class="aside-label">RECENT MOVES</small>'+moveList+'</div>':'');
+    root.innerHTML=intro+buy+'<section class="arena3d-stage" aria-label="Interactive 3D chess board"></section>'+boardHTML+'<div class="result-banner">'+message+'</div>'+(history.length?'<div class="aside-card" style="max-width:520px;margin:14px auto"><small class="aside-label">RECENT MOVES</small>'+moveList+'</div>':'');
+    const boardState=position?position.board:makePosition().board;
+    const sceneConfig={kind:"board",title:game.name,players:[{name:"You",human:true,status:position&&position.turn==="w"?"YOUR MOVE":"WHITE"},{name:"HAL",status:position&&position.turn==="b"?"THINKING":"BLACK"}],boardData:{mode:"chess",grid:boardState},centerText:done?"GAME COMPLETE":position?(position.turn==="w"?"WHITE TO MOVE":"BLACK TO MOVE"):"START MATCH"};
+    if(!arena)arena=mountArena3D(root,sceneConfig);else arena.update(sceneConfig);
   }
   root.addEventListener("click",click);render();
-  return {close:()=>{if(stake&&!done){done=true;wallet.settle(stake,0,game.name);}},destroy:()=>root.removeEventListener("click",click)};
+  return {close:()=>{if(stake&&!done){done=true;wallet.settle(stake,0,game.name);}arena?.destroy();},destroy:()=>{root.removeEventListener("click",click);arena?.destroy();}};
 }
 export { mountChess };
