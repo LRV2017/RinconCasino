@@ -241,7 +241,7 @@ function mountDiceSideBet(game,root,wallet,mode){
   c.bind(e=>{
     const b=e.target.closest("[data-act],[data-pick]");if(!b)return;
     if(b.dataset.pick){pick=Number(b.dataset.pick);render();return;}
-    if(b.dataset.act==="roll"){const bet=c.takeBet();if(!bet)return;const dice=Array.from({length:3},()=>1+Math.floor(Math.random()*6)),hits=dice.filter(x=>x===pick).length,mult=hits===3?4:hits===2?3:hits===1?2:0,payout=bet*mult;s={dice};settle(bet,payout,hits+" matching dice. "+(hits?"Payout "+mult+"×.":"No matches."));}
+    if(b.dataset.act==="roll"||b.dataset.act==="again"){const bet=c.takeBet();if(!bet)return;const dice=Array.from({length:3},()=>1+Math.floor(Math.random()*6)),hits=dice.filter(x=>x===pick).length,mult=hits===3?4:hits===2?3:hits===1?2:0,payout=bet*mult;s={dice};settle(bet,payout,hits+" matching dice. "+(hits?"Payout "+mult+"×.":"No matches."));}
   });
   render();return c;
 }
@@ -273,7 +273,7 @@ function mountBingo(game,root,wallet){
   }
   c.bind(e=>{
     const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;
-    if(a==="start"){if(s&&!s.done)return;const bet=c.takeBet();if(!bet)return;const balls=Array.from({length:75},(_,i)=>i+1);for(let i=74;i>0;i--){const j=Math.floor(Math.random()*(i+1));[balls[i],balls[j]]=[balls[j],balls[i]];}s={bet,drawn:[],balls,player:newCard(),bots:[newCard(),newCard(),newCard()],done:false};render("Your card is live. Start drawing.");}
+    if(a==="start"||a==="again"){if(s&&!s.done)return;const bet=c.takeBet();if(!bet)return;const balls=Array.from({length:75},(_,i)=>i+1);for(let i=74;i>0;i--){const j=Math.floor(Math.random()*(i+1));[balls[i],balls[j]]=[balls[j],balls[i]];}s={bet,drawn:[],balls,player:newCard(),bots:[newCard(),newCard(),newCard()],done:false};render("Your card is live. Start drawing.");}
     else if(s&&!s.done&&a==="draw")drawOne();
     else if(s&&!s.done&&a==="auto"){for(let i=0;i<75&&!s.done;i++)drawOne();}
   });
@@ -420,7 +420,7 @@ function mountKlondike(game,root,wallet){
   function click(e){
     const b=e.target.closest("[data-act],[data-card]");if(!b)return;
     const a=b.dataset.act;
-    if(a==="start"){if(s&&!s.done)return;start();return;}
+    if(a==="start"||a==="again"){if(s&&!s.done)return;start();return;}
     if(!s||s.done)return;
     if(a==="stock"){
       if(s.stock.length)s.waste.push(s.stock.pop());
