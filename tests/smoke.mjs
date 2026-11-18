@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { gameCatalog } from "../src/catalog.js";
 import { mountGame } from "../src/engines.js";
 
-assert.equal(gameCatalog.length,54,"catalog should contain 54 distinct game types");
+assert.equal(gameCatalog.length,56,"catalog should contain 56 distinct game types");
 assert.equal(new Set(gameCatalog.map(game=>game.id)).size,54,"game IDs must be unique");
 assert.equal(new Set(gameCatalog.map(game=>game.name)).size,54,"game names must be unique");
-assert.equal(new Set(gameCatalog.map(game=>game.category)).size,15,"catalog should contain 15 categories");
+assert.equal(new Set(gameCatalog.map(game=>game.category)).size,16,"catalog should contain 16 categories");
 const supported=["roulette","blackjack","baccarat","poker","videopoker","slots","keno","dice","board","wheel","scratch","draw","extra"];
 for(const game of gameCatalog){
   assert.ok(game.name&&game.description&&game.rules,game.name+" needs full catalog metadata");
@@ -83,7 +83,9 @@ function exercise(game,root){
       "mastermind":[{act:"start"},{slot:"0"},{act:"guess"}],
       "memory-match":[{act:"start"},{card:"0"},{card:"1"}],
       "minesweeper":[{act:"start"},{cell:"0"}],
-      "klondike":[{act:"start"},{act:"stock"},{card:"waste"},{act:"to-foundation"}]
+      "klondike":[{act:"start"},{act:"stock"},{card:"waste"},{act:"to-foundation"}],
+      "russian-roulette":[{act:"start"},{act:"pull"}],
+      "devils-chamber":[{act:"start"},{act:"scan"},{act:"ward"},{act:"pull"}]
     };
     const steps=actions[game.mode];assert.ok(steps,game.name+" must have a dedicated extra-game controller");
     for(const step of steps)root.click(step);
@@ -104,7 +106,9 @@ for(const game of gameCatalog){
       "Bunco":["Rico","Maya","Ace"],
       "Pig":["Rico","Maya","Ace"],
       "Ship, Captain, Crew":["FOUR-PLAYER SHOWDOWN"],
-      "Dice Poker":["FOUR LOCAL OPPONENTS"]
+      "Dice Poker":["FOUR LOCAL OPPONENTS"],
+      "Russian Roulette":["Rico","Maya","Ace"],
+      "Devil’s Chamber":["Rico","Maya","Ace"]
     };
     for(const marker of botChecks[game.name]||[])assert.ok(root.innerHTML.includes(marker),game.name+" should show its expanded local opponents");
     session.close();session.destroy();
