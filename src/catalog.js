@@ -25,10 +25,10 @@ const groups = [
     "Pick 3","Pick 4","Pick 5","Daily 6","Lucky 7 Draw","Mega 49","Power 60","Euro 50","Quick Pick","Cash Five","Lucky Stars","Daily Keno Draw","Triple Match","Double Draw","Millionaire's Row","Golden Numbers","Fortune 20","Rincon 6/49","Rincon 5/50","Grand Number Draw"]]
 ];
 const descriptions = {
-  roulette:"Choose a pocket, color or outside bet. The wheel decides the result.",
+  roulette:"Choose a pocket, color or outside bet. French La Partage returns half an even-money stake on zero.",
   blackjack:"Play your hand against the dealer. Get closer to 21 without going over.",
   baccarat:"Choose Player, Banker or Tie, then follow the classic third-card rules.",
-  poker:"Play a real card-table variant against local house bots. No online seats yet.",
+  poker:"Play Texas Hold’em or Pot-Limit Omaha against a local house bot. No online seats yet.",
   videopoker:"Choose which cards to hold, draw replacements and beat the pay table.",
   slots:"Spin the reels, match symbols on active lines and collect the posted payout.",
   keno:"Pick your lucky numbers, draw the balls and compare your hits to the pay table.",
@@ -48,7 +48,7 @@ for (const group of groups) {
   names.forEach((name, index) => {
     const id = engine + "-" + String(index + 1).padStart(2,"0");
     let mode = "classic";
-    if (engine === "dice") mode = ["craps","sicbo","yahtzee","farkle","liars","ceelo","bunco","ship","pig","shutbox","craps","craps","sicbo","sicbo","yahtzee","dice-poker","farkle","farkle","yahtzee","sicbo"][index];
+    if (engine === "dice") mode = ["craps","sicbo","yahtzee","farkle","liars","ceelo","bunco","ship","pig","shutbox","craps","craps","highlow","highlow","dice-poker","ceelo","farkle","farkle","yahtzee","sicbo"][index];
     if (engine === "board") mode = ["ttt","ttt","connect4","connect4","reversi","reversi","gomoku","gomoku","battleship","battleship","checkers","checkers","nim","nim","dots","dots","morris","connect4","reversi","connect4"][index];
     if (engine === "wheel") mode = ["coin","coin","plinko","plinko","limbo","crash","mines","mines","hilo","wheel","wheel","wheel","wheel","wheel","coin","wheel","crash","mines","limbo","wheel"][index];
     const item = {
