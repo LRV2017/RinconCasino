@@ -172,7 +172,7 @@ function updateProfileButton(){
 }
 function showCloudChoice(data){
   cloudPendingData=data;
-  openModal("GitHub save found",'<p>A private Rincon Casino save already exists on GitHub.</p><p>Choose which copy should become active on this device. Loading the cloud copy replaces the local balance, favorites, history and stats.</p><p class="aside-muted">Signed in as '+escapeHTML(cloudUser.login)+'.</p>','<button class="button button-gold" id="githubLoadSave">Load cloud save</button><button class="button button-outline" id="githubKeepLocal">Keep this browser and upload it</button>');
+  openModal("GitHub save found",'<p>A secret (unlisted) Rincon Casino save already exists on GitHub.</p><p>Choose which copy should become active on this device. Loading the cloud copy replaces the local balance, favorites, history and stats.</p><p class="aside-muted">Signed in as '+escapeHTML(cloudUser.login)+'.</p>','<button class="button button-gold" id="githubLoadSave">Load cloud save</button><button class="button button-outline" id="githubKeepLocal">Keep this browser and upload it</button>');
 }
 function showProfile(message=""){
   if(cloudUser){
