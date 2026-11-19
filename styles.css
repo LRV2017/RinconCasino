@@ -67,3 +67,43 @@
  .chamber-hud{gap:7px;font-size:8px;padding:9px 7px}
  .chamber-hud span{flex:1 1 28%;text-align:center}
 }
+
+
+/* Peer-to-peer room lobby and board games */
+.p2p-intro{text-align:center;max-width:720px;margin:0 auto 18px}.p2p-intro h3{margin:5px 0}.p2p-intro p{font-size:11px;line-height:1.65;color:#a2ad98}
+.p2p-lobby-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.p2p-panel{padding:16px;border:1px solid #36402e;border-radius:10px;background:#171d16;display:flex;flex-direction:column;gap:12px}
+.p2p-panel h4,.p2p-chat h4{margin:0;color:var(--gold2);font:10px var(--mono);letter-spacing:.13em}
+.p2p-panel label,.github-token-label{display:flex;flex-direction:column;gap:6px;color:#aab39e;font:10px var(--mono);letter-spacing:.06em}
+.p2p-panel input,.p2p-panel select,.p2p-chat input,.github-token-label input{width:100%;min-height:42px;padding:10px 12px;border:1px solid #495541;border-radius:6px;background:#10150f;color:#f0eddf;font:12px var(--sans)}
+.p2p-panel button{margin-top:auto}
+.p2p-footnote{margin:14px 0 0;color:#899381;font-size:10px;line-height:1.6}
+.p2p-room-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border:1px solid #46503a;border-radius:8px;background:#191f17}
+.p2p-room-head small{display:block;color:#9ba58d;font:9px var(--mono);letter-spacing:.15em}.p2p-room-head strong{display:block;margin-top:4px;color:var(--gold2);font:800 23px var(--mono);letter-spacing:.15em}
+.p2p-room-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px 0;color:#aeb7a1;font:10px var(--mono)}
+.p2p-room-meta span{padding:6px 8px;border:1px solid #333d2f;border-radius:5px;background:#171d16}
+.p2p-match{max-width:560px;margin:14px auto;text-align:center}
+.p2p-turn{display:flex;justify-content:space-between;gap:10px;margin:10px 0;color:#d9d8c8;font:10px var(--mono)}
+.p2p-board{display:grid;gap:5px;margin:12px auto;max-width:100%}
+.p2p-ttt{grid-template-columns:repeat(3,minmax(75px,110px));justify-content:center}
+.p2p-ttt button{aspect-ratio:1;border:1px solid #61704d;border-radius:7px;background:#202a1e;color:#e6d5a3;font-size:clamp(28px,6vw,52px);font-weight:800}
+.p2p-connect-wrap{max-width:490px;margin:0 auto;padding:10px;border:1px solid #4a604a;border-radius:10px;background:#193c50}
+.p2p-connect-cols{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:7px}
+.p2p-connect-cols button{border:0;background:transparent;color:#c4d5d0;font:11px var(--mono);padding:5px}
+.p2p-connect{grid-template-columns:repeat(7,1fr);gap:5px}
+.p2p-disc{display:block;aspect-ratio:1;border-radius:50%;background:#0e2431;box-shadow:inset 0 2px 5px #0008}
+.p2p-disc.one{background:#ddbd65}.p2p-disc.two{background:#e8e8d8}
+.p2p-gomoku-scroll{max-width:100%;overflow:auto;padding:8px;border:1px solid #5b543d;border-radius:7px;background:#bd9b5c}
+.p2p-gomoku{grid-template-columns:repeat(15,25px);gap:0;width:max-content;margin:0}
+.p2p-gomoku button{width:25px;height:25px;padding:0;border:0;border-right:1px solid #6d5734;border-bottom:1px solid #6d5734;background:transparent;color:#20251d;font-size:18px;line-height:1}
+.p2p-gomoku button:disabled{opacity:1}
+.p2p-reversi{grid-template-columns:repeat(8,minmax(24px,42px));justify-content:center;gap:2px;padding:7px;border:1px solid #7c9167;border-radius:7px;background:#24603e}
+.p2p-reversi button{aspect-ratio:1;min-width:0;border:1px solid #527c56;border-radius:50%;background:#247548;color:#101610;font-size:clamp(15px,3vw,27px);font-weight:900;line-height:1}
+.p2p-reversi button:disabled{opacity:1}
+.p2p-waiting{margin:15px 0;padding:18px;border:1px dashed #495541;border-radius:8px;color:#aab39e;text-align:center;font-size:11px}
+.p2p-chat{margin:14px 0;padding:12px;border:1px solid #333d2f;border-radius:8px;background:#151b14}
+.p2p-chat-log{display:grid;gap:6px;max-height:130px;overflow:auto;margin:10px 0;color:#c9cebe;font-size:11px}
+.p2p-chat-log b{color:var(--gold2);margin-right:4px}
+.p2p-chat form{display:flex;gap:8px;align-items:center}.p2p-chat input{flex:1;min-width:0}
+.github-account{display:flex;align-items:center;gap:12px}.github-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:#2b3825;color:#e2d19a;font-size:18px;font-weight:900}.github-account p{margin:4px 0;color:#98a38e;font-size:10px}
+#modalBody a{color:var(--gold2);text-decoration:underline}#modalBody .github-token-label{margin:14px 0}
