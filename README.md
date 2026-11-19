@@ -36,7 +36,7 @@ Roulette (European and American), Blackjack, Punto Banco Baccarat, Texas Hold'em
 - `src/catalog.js` — curated list of distinct game types
 - `src/app.js` — lobby, search, favorites, demo wallet, rewards, history and stats
 - `src/engines.js` — original casino, dice, poker and board-game engines
-- `src/extra-games.js` — 14 new independent game loops
+- `src/extra-games.js` — 16 independent game loops, including Russian Roulette and Demon's Deal
 - `src/poker.js` — Hold'em and Omaha local tables
 - `src/board.js` / `src/chess.js` — strategy games and bots
 - `src/multiplayer.js` — PeerJS WebRTC invite rooms with Tic-Tac-Toe, Connect Four, Reversi and Gomoku
