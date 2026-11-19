@@ -23,6 +23,7 @@
       </nav>
       <div class="top-actions">
         <div class="wallet-pill"><span class="wallet-icon">◈</span><span><small>DEMO BALANCE</small><strong id="balanceTop">2,500</strong></span><b>CR</b></div>
+        <button class="button button-outline" id="roomsBtn">Online rooms</button>
         <button class="button button-gold" id="dailyBtn">Daily bonus</button>
         <button class="avatar" id="profileBtn" aria-label="Open player profile">R</button>
       </div>
@@ -32,7 +33,7 @@
       <aside class="sidebar">
         <div class="sidebar-label">PLAY</div>
         <a class="side-link selected" href="#lobby"><span>⌂</span> Lobby</a>
-        <a class="side-link" href="#games"><span>▦</span> Game library <b id="gameCountSide">54</b></a>
+        <a class="side-link" href="#games"><span>▦</span> Game library <b id="gameCountSide">56</b></a>
         <button class="side-link" id="favoritesNav"><span>☆</span> Favorites <b id="favoriteCount">0</b></button>
         <div class="side-rule"></div>
         <div class="sidebar-label">YOUR ROOM</div>
@@ -58,8 +59,8 @@
               <button class="button button-quiet" id="continueBtn">Continue playing <span>→</span></button>
             </div>
             <div class="hero-metrics">
-              <div><strong id="metricGames">54</strong><small>GAMES & TABLES</small></div>
-              <div><strong>15</strong><small>GAME CATEGORIES</small></div>
+              <div><strong id="metricGames">56</strong><small>GAMES & TABLES</small></div>
+              <div><strong>16</strong><small>GAME CATEGORIES</small></div>
               <div><strong>0</strong><small>REAL-MONEY RISK</small></div>
             </div>
           </div>
@@ -76,6 +77,7 @@
           <button class="quick-card" data-quick="popular"><span class="quick-symbol">✦</span><span><small>START HERE</small><strong>Popular picks</strong></span><b>↗</b></button>
           <button class="quick-card" data-quick="table"><span class="quick-symbol">♠</span><span><small>CLASSIC TABLES</small><strong>Casino favorites</strong></span><b>↗</b></button>
           <button class="quick-card" data-quick="bots"><span class="quick-symbol">♟</span><span><small>PLAY THE HOUSE</small><strong>Challenge the bots</strong></span><b>↗</b></button>
+          <button class="quick-card" data-quick="rooms"><span class="quick-symbol">⌘</span><span><small>PLAY WITH FRIENDS</small><strong>Create an online room</strong></span><b>↗</b></button>
         </section>
 
         <section class="section-block">
@@ -88,7 +90,7 @@
 
         <section class="section-block library-section" id="games">
           <div class="section-heading library-heading">
-            <div><div class="eyebrow">54 DISTINCT GAME TYPES</div><h2>Game library <span class="count-pill" id="gameCount">54</span></h2><p>Search the collection, choose a category, and jump straight into a game.</p></div>
+            <div><div class="eyebrow">56 DISTINCT GAME TYPES</div><h2>Game library <span class="count-pill" id="gameCount">56</span></h2><p>Search the collection, choose a category, and jump straight into a game.</p></div>
             <div class="library-tools">
               <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Search games, categories..." autocomplete="off"><kbd>/</kbd></label>
               <select id="sortSelect" aria-label="Sort games"><option value="featured">Recommended</option><option value="az">A to Z</option><option value="new">Recently added</option></select>
@@ -98,7 +100,7 @@
           <div class="library-meta"><span id="resultsLabel">Showing all games</span><button id="clearFilters" class="text-link">Clear filters</button></div>
           <div class="game-grid" id="gameGrid"></div>
           <div class="empty-state" id="emptyState" hidden><div>⌕</div><h3>No games found</h3><p>Try another name or category.</p><button class="button button-outline" id="emptyReset">Clear search</button></div>
-          <div class="load-more-row"><span>THE RINCON COLLECTION</span><span id="pageCount">54 distinct game types</span></div>
+          <div class="load-more-row"><span>THE RINCON COLLECTION</span><span id="pageCount">56 distinct game types</span></div>
         </section>
 
         <footer class="footer">
