@@ -4,7 +4,7 @@ Rincon Casino is a static, browser-only, free-to-play game lounge. It uses ficti
 
 ## The distinct-game catalog
 
-The current catalog contains **54 actual game types across 15 categories**. Repeated room names and cosmetic table re-skins have been removed. Each catalog entry points to a distinct mode with its own rules and gameplay loop.
+The current catalog contains **56 actual game types across 16 categories**. Repeated room names and cosmetic table re-skins have been removed. Each catalog entry points to a distinct mode with its own rules and gameplay loop.
 
 ### Existing core tables and arcade games
 
@@ -26,6 +26,8 @@ Roulette (European and American), Blackjack, Punto Banco Baccarat, Texas Hold'em
 - **Memory Match** — 4×4 concentration board with eight matching pairs.
 - **Minesweeper** — 9×9 board with number clues, flags and flood-reveal.
 - **Klondike Solitaire** — seven tableau columns, stock, waste and suit foundations.
+- **Russian Roulette** — six-chamber survival game against three local bots.
+- **Demon’s Deal** — an original gadget-based survival showdown with hidden chambers and three local bots.
 
 ## Architecture
 
@@ -37,8 +39,9 @@ Roulette (European and American), Blackjack, Punto Banco Baccarat, Texas Hold'em
 - `src/extra-games.js` — 14 new independent game loops
 - `src/poker.js` — Hold'em and Omaha local tables
 - `src/board.js` / `src/chess.js` — strategy games and bots
-- `src/room-adapter.js` — local room abstraction and future network adapter seam
-- `docs/ONLINE_MULTIPLAYER.md` — future server-authoritative multiplayer plan
+- `src/multiplayer.js` — PeerJS WebRTC invite rooms with Tic-Tac-Toe, Connect Four, Reversi and Gomoku
+- `src/github-cloud.js` — GitHub account connection and save sync through a secret (unlisted) Gist
+- `docs/ONLINE_MULTIPLAYER.md` — P2P room model, setup and trust boundaries
 
 ## Run locally
 
@@ -58,8 +61,14 @@ npm run check
 
 The automated smoke suite syntax-checks the modules, verifies every catalog game has a unique ID and supported engine, mounts each game and triggers a first gameplay action. This is not exhaustive browser QA, rules certification or payout balancing.
 
-## Online multiplayer — future update
+## Peer-to-peer rooms
 
-Online PvP remains disabled. Competitive tables use local bots only. The room adapter is an architectural seam; it does not claim to connect online players. See [docs/ONLINE_MULTIPLAYER.md](docs/ONLINE_MULTIPLAYER.md) for the server-authoritative design.
+Choose **Online rooms** in the lobby to create or join an eight-character invite room. Current online games are Tic-Tac-Toe, Connect Four, Reversi and Gomoku (two players). The host browser validates moves and sends board snapshots over a WebRTC data channel. PeerJS Cloud brokers the initial handshake; normal game data is peer-to-peer, though some restrictive networks may need a TURN relay. The host must keep its browser tab open. This mode is for friendly board matches, not a tamper-proof competitive economy. See [docs/ONLINE_MULTIPLAYER.md](docs/ONLINE_MULTIPLAYER.md).
+
+## GitHub saves
+
+Open the player profile and connect GitHub with a classic personal access token that has only `gist` and `read:user` scopes. The save syncs after balance, favorites, history or stats change. The token stays in the current browser tab's `sessionStorage` and is not written to the save file or repository. You may need to reconnect after closing the tab.
+
+Saves are stored in a GitHub **secret (unlisted) Gist**. Secret Gists are not private: anyone who obtains the Gist URL can read them. The file contains fictional-credit balance, favorites, recent results and aggregate stats only—never credentials or personal secrets. See [GitHub's Gist visibility explanation](https://docs.github.com/en/get-started/writing-on-github/editing-and-sharing-content-with-gists/creating-gists).
 
 All balances and outcomes are local fictional credits.
