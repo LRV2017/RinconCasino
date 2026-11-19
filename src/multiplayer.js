@@ -9,7 +9,7 @@ function loadPeer(){
   if(!peerLoader)peerLoader=new Promise((resolve,reject)=>{
     const script=document.createElement("script");script.src=PEER_SCRIPT;script.async=true;
     script.onload=()=>window.Peer?resolve(window.Peer):reject(new Error("PeerJS did not expose its browser API."));
-    script.onerror=()=>reject(new Error("Could not load PeerJS. Check your internet connection."));
+    script.onerror=()=>{peerLoader=null;reject(new Error("Could not load PeerJS. Check your internet connection."));};
     document.head.appendChild(script);
   });
   return peerLoader;
@@ -183,7 +183,11 @@ export function mountMultiplayerRooms(root,{defaultName=""}={}){
     const button=e.target.closest("[data-room],[data-cell],[data-col]");if(!button)return;
     const action=button.dataset.room;
     if(action==="host"){create();return;}if(action==="join"){join();return;}if(action==="start"){startMatch();return;}
-    if(action==="copy"){navigator.clipboard?.writeText(roomUrl()).then(()=>status("Invite link copied.")).catch(()=>status("Room code: "+roomCode));return;}
+    if(action==="copy"){
+      if(navigator.clipboard?.writeText)navigator.clipboard.writeText(roomUrl()).then(()=>status("Invite link copied.")).catch(()=>status("Room code: "+roomCode));
+      else status("Room code: "+roomCode);
+      return;
+    }
     if(action==="leave"){leave();return;}
     if(action==="rematch"){if(isHost)startMatch();else send({type:"REMATCH"});return;}
     if(!started||state?.over||state.turn!==(isHost?0:1))return;
