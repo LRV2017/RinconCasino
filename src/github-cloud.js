@@ -76,7 +76,7 @@ export class GitHubCloudSave{
     }
     const created=await this.request("/gists",{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({description:"Rincon Casino private player save",public:false,files:{[SAVE_FILE]:{content}}})
+      body:JSON.stringify({description:"Rincon Casino player save (secret/unlisted Gist)",public:false,files:{[SAVE_FILE]:{content}}})
     });
     this.gistId=created.id;localStorage.setItem(GIST_KEY,created.id);return created;
   }
