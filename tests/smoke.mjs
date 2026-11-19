@@ -1,12 +1,43 @@
 import assert from "node:assert/strict";
 import { gameCatalog } from "../src/catalog.js";
 import { mountGame } from "../src/engines.js";
+import { createRoomBoard, applyRoomMove } from "../src/multiplayer.js";
 
 assert.equal(gameCatalog.length,56,"catalog should contain 56 distinct game types");
 assert.equal(new Set(gameCatalog.map(game=>game.id)).size,56,"game IDs must be unique");
 assert.equal(new Set(gameCatalog.map(game=>game.name)).size,56,"game names must be unique");
 assert.equal(new Set(gameCatalog.map(game=>game.category)).size,16,"catalog should contain 16 categories");
 const supported=["roulette","blackjack","baccarat","poker","videopoker","slots","keno","dice","board","wheel","scratch","draw","extra"];
+
+const tic=createRoomBoard("ttt");
+let ticState=applyRoomMove(tic,0,{i:0});
+assert.ok(ticState,"first Tic-Tac-Toe move should be accepted");
+assert.equal(applyRoomMove(ticState,1,{i:0}),null,"occupied Tic-Tac-Toe squares must be rejected");
+ticState=applyRoomMove(ticState,1,{i:3});
+ticState=applyRoomMove(ticState,0,{i:1});
+ticState=applyRoomMove(ticState,1,{i:4});
+ticState=applyRoomMove(ticState,0,{i:2});
+assert.equal(ticState.winner,0,"Tic-Tac-Toe must detect a winning line");
+
+let connect=createRoomBoard("connect4");
+for(const col of [0,1,0,1,0,1,0]){
+  const player=connect.turn;
+  connect=applyRoomMove(connect,player,{c:col});
+}
+assert.equal(connect.winner,0,"Connect Four must detect a vertical four");
+
+let reversi=createRoomBoard("reversi");
+reversi=applyRoomMove(reversi,0,{r:2,c:3});
+assert.ok(reversi,"standard Reversi opening move should be legal");
+assert.equal(reversi.board[3][3],1,"Reversi must flip the enclosed opposing disc");
+
+let gomoku=createRoomBoard("gomoku");
+for(const c of [3,4,5,6,7]){
+  gomoku=applyRoomMove(gomoku,0,{r:7,c});
+  if(c<7)gomoku=applyRoomMove(gomoku,1,{r:0,c:c-3});
+}
+assert.equal(gomoku.winner,0,"Gomoku must detect five in a row");
+
 for(const game of gameCatalog){
   assert.ok(game.name&&game.description&&game.rules,game.name+" needs full catalog metadata");
   assert.ok(supported.includes(game.engine),game.name+" needs a supported engine");
