@@ -12,7 +12,7 @@ export class GitHubCloudSave{
     if(!this.token)throw new Error("Connect your GitHub account first.");
     const response=await fetch(API+path,{...options,headers:{...HEADERS,"Authorization":"Bearer "+this.token,...(options.headers||{})}});
     let data={};try{data=await response.json();}catch{}
-    if(!response.ok)throw new Error(data.message||("GitHub API request failed ("+response.status+")."));
+    if(!response.ok){const error=new Error(data.message||("GitHub API request failed ("+response.status+")."));error.status=response.status;throw error;}
     return data;
   }
   async signIn(token){
@@ -33,8 +33,9 @@ export class GitHubCloudSave{
       const user=await this.request("/user");
       this.user={login:user.login,avatar_url:user.avatar_url||"",html_url:user.html_url||""};
       return this.user;
-    }catch{
-      this.signOut();return null;
+    }catch(error){
+      if(error.status===401||error.status===403){this.signOut();return null;}
+      throw error;
     }
   }
   signOut(){
