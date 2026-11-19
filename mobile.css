@@ -3,3 +3,19 @@
 
 .arena3d-stage{max-width:100%;touch-action:none}
 .arena3d-canvas{width:100%;height:100%;touch-action:none}
+
+@media(max-width:760px){
+ .quick-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .quick-card{padding:11px 9px;gap:8px}.quick-symbol{width:32px;height:32px;flex:0 0 32px}
+ .top-actions #roomsBtn{display:inline-flex!important;padding:8px 9px;font-size:9px}
+ .rincon-mobile-nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+ .p2p-lobby-grid{grid-template-columns:1fr}
+ .p2p-panel{padding:12px}
+ .p2p-room-head strong{font-size:18px}
+ .p2p-room-meta{gap:5px;font-size:8px}
+ .p2p-connect-wrap{padding:7px}
+ .p2p-connect{gap:4px}
+ .p2p-reversi{grid-template-columns:repeat(8,minmax(22px,1fr))}
+ .p2p-gomoku button{width:22px;height:22px;font-size:16px}
+ .p2p-chat form{align-items:stretch}.p2p-chat input{width:100%}
+}
