@@ -27,6 +27,7 @@ export function createRoomBoard(mode){
   return {mode:"reversi",board,turn:0,over:false,winner:null,passes:0};
 }
 const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
+const ALL_DIRECTIONS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
 function lineCount(board,r,c,dr,dc,p){
   let n=0,rr=r+dr,cc=c+dc;
   while(rr>=0&&rr<board.length&&cc>=0&&cc<board[0].length&&board[rr][cc]===p){n++;rr+=dr;cc+=dc;}
@@ -40,7 +41,7 @@ function reversiLegal(board,p){
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     if(board[r][c])continue;
     const flips=[];
-    for(const [dr,dc] of DIRS.concat(DIRS.map(([a,b])=>[a,-b]))){
+    for(const [dr,dc] of ALL_DIRECTIONS){
       let rr=r+dr,cc=c+dc,line=[];
       while(rr>=0&&rr<8&&cc>=0&&cc<8&&board[rr][cc]===3-p){line.push([rr,cc]);rr+=dr;cc+=dc;}
       if(line.length&&rr>=0&&rr<8&&cc>=0&&cc<8&&board[rr][cc]===p)flips.push(...line);
