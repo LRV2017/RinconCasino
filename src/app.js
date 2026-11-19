@@ -191,7 +191,9 @@ async function connectGitHub(){
   }catch(error){showProfile(error.message);}
 }
 async function restoreGitHubSession(){
-  const user=await cloudSave.restore();if(!user)return;
+  let user;
+  try{user=await cloudSave.restore();}catch(error){showToast("GitHub connection unavailable: "+error.message);return;}
+  if(!user)return;
   cloudUser=user;updateProfileButton();
   try{
     const remote=await cloudSave.load();
