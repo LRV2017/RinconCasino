@@ -51,7 +51,7 @@ export class GitHubCloudSave{
     for(let page=1;page<=10;page++){
       const gists=await this.request("/gists?per_page=100&page="+page);
       const found=gists.find(g=>g.files?.[SAVE_FILE]);
-      if(found){this.gistId=found.id;localStorage.setItem(GIST_KEY,found.id);return found;}
+      if(found){this.gistId=found.id;localStorage.setItem(GIST_KEY,found.id);return await this.request("/gists/"+encodeURIComponent(found.id));}
       if(gists.length<100)break;
     }
     return null;
