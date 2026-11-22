@@ -688,10 +688,13 @@ function doNormalMove(from, to) {
   if (captured) {
     gameCaptures++;
     energy[color] = clamp(energy[color] + 2, 0, 6);
-    if (opponent === "local" || (opponent === "bot" && color === "w") || (opponent === "online" && ((net.role === "host" && color === "w") || (net.role === "guest" && color === "b")))) {
+    if (opponent === "local" || (opponent === "bot" && color === "w") || (opponent === "online" && net.role === "host" && color === "w")) {
       profile.captures++;
       profile.daily.captures++;
       saveProfile();
+    }
+    if (opponent === "online" && net.role === "host" && handlingRemote && color === "b") {
+      peerRoom?.send({ type: "guest-capture" });
     }
   } else {
     energy[color] = clamp(energy[color] + 1, 0, 6);
@@ -1605,6 +1608,12 @@ function handlePeerStatus(message) {
 
 function handlePeerData(message) {
   if (!message || typeof message !== "object") return;
+  if (message.type === "guest-capture" && net.role === "guest") {
+    profile.captures++;
+    profile.daily.captures++;
+    saveProfile();
+    return;
+  }
   if (message.type === "emote") {
     const item = EMOTES.find(entry => entry.id === message.id);
     if (!item) return;
