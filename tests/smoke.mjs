@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { gameCatalog } from "../src/catalog.js";
 import { mountGame } from "../src/engines.js";
-import { createRoomBoard, applyRoomMove } from "../src/multiplayer.js";
+import { createRoomBoard, applyRoomMove, ONLINE_ROOM_MODES, getPublicRoomState } from "../src/multiplayer.js";
 
 assert.equal(gameCatalog.length,56,"catalog should contain 56 distinct game types");
 assert.equal(new Set(gameCatalog.map(game=>game.id)).size,56,"game IDs must be unique");
@@ -37,6 +37,57 @@ for(const c of [3,4,5,6,7]){
   if(c<7)gomoku=applyRoomMove(gomoku,1,{r:0,c:c-3});
 }
 assert.equal(gomoku.winner,0,"Gomoku must detect five in a row");
+
+
+assert.deepEqual(ONLINE_ROOM_MODES,["ttt","connect4","reversi","gomoku","chess","checkers","battleship","mancala","nim","dots"],"the online lobby should expose every enabled head-to-head game");
+
+let chess=createRoomBoard("chess");
+chess=applyRoomMove(chess,0,{from:{r:6,c:4},to:{r:4,c:4}});
+assert.ok(chess,"e2-e4 should be accepted by the online chess rules");
+assert.equal(chess.position.board[4][4],"P");
+assert.equal(chess.turn,1);
+assert.equal(applyRoomMove(chess,0,{from:{r:1,c:4},to:{r:3,c:4}}),null,"out-of-turn chess moves must be rejected");
+chess=applyRoomMove(chess,1,{from:{r:1,c:4},to:{r:3,c:4}});
+assert.ok(chess,"e7-e5 should be accepted by the online chess rules");
+
+let checkers=createRoomBoard("checkers");
+checkers=applyRoomMove(checkers,0,{from:{r:5,c:1},to:{r:4,c:0}});
+assert.ok(checkers,"a legal opening checkers move should be accepted");
+assert.equal(checkers.turn,1);
+assert.equal(applyRoomMove(checkers,1,{from:{r:2,c:0},to:{r:4,c:2}}),null,"a checkers jump over an empty square must be rejected");
+
+let battle=createRoomBoard("battleship");
+battle=applyRoomMove(battle,0,{r:0,c:0});
+assert.ok(battle,"a first Battleship shot should be accepted");
+assert.equal(battle.turn,1);
+assert.equal(applyRoomMove(battle,1,{r:0,c:0}),null,"players cannot shoot the same coordinate twice on their own turn");
+const guestView=getPublicRoomState(battle,1);
+assert.equal(guestView.fleets,undefined,"a guest must never receive the hidden full fleet arrays");
+assert.ok(Array.isArray(guestView.ownFleet)&&Array.isArray(guestView.outgoingShots)&&Array.isArray(guestView.incomingShots),"Battleship should expose only the guest's own fleet and public shot history");
+
+let mancala=createRoomBoard("mancala");
+mancala=applyRoomMove(mancala,0,{pit:0});
+assert.ok(mancala);
+assert.equal(mancala.pits[0],0);
+assert.equal(mancala.pits[1],5);
+assert.equal(mancala.turn,1);
+assert.equal(applyRoomMove(mancala,0,{pit:8}),null,"Mancala must reject picking from the opponent's side");
+
+let nim=createRoomBoard("nim");
+nim=applyRoomMove(nim,0,{pile:0,count:3});
+nim=applyRoomMove(nim,1,{pile:1,count:4});
+nim=applyRoomMove(nim,0,{pile:2,count:5});
+nim=applyRoomMove(nim,1,{pile:3,count:7});
+assert.equal(nim.over,true);
+assert.equal(nim.winner,1,"the player taking the final Nim token should win");
+
+let dots=createRoomBoard("dots");
+dots=applyRoomMove(dots,0,{type:"h",r:0,c:0});
+dots=applyRoomMove(dots,1,{type:"v",r:0,c:0});
+dots=applyRoomMove(dots,0,{type:"h",r:1,c:0});
+dots=applyRoomMove(dots,1,{type:"v",r:0,c:1});
+assert.equal(dots.scores[1],1,"completing a Dots and Boxes square should score it");
+assert.equal(dots.turn,1,"a player who completes a box should keep their turn");
 
 for(const game of gameCatalog){
   assert.ok(game.name&&game.description&&game.rules,game.name+" needs full catalog metadata");
