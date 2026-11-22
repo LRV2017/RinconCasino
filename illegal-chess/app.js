@@ -512,6 +512,7 @@ function renderMatch() {
     '</section><aside class="match-side">' +
       '<section class="match-panel"><div class="panel-heading" style="margin-bottom:7px"><h3>ARSENAL</h3><small>' + (matchMode === "chaos" ? "YOUR ENERGY " + energy[turn] + " / 6" : "DISABLED") + '</small></div><p class="sub">' + (matchMode === "chaos" ? "Choose a power, then select a target on the board. Powers spend your turn." : "Play by the book. Every move must be legal.") + '</p>' + renderPowerDeck() + '</section>' +
       '<section class="match-panel"><div class="panel-heading"><h3>COMBAT LOG</h3><small>' + logTitle + '</small></div><div class="log-list">' + renderLog() + '</div></section>' +
+      '<section class="match-panel"><div class="panel-heading"><h3>QUICK EMOTES</h3><small>REACTIONS</small></div><div class="match-emote-row">' + renderEmoteDeck() + '</div></section>' +
       '<section class="match-panel"><div class="panel-heading"><h3>FIELD NOTES</h3><small>RULES</small></div><p class="mode-note">' + (matchMode === "chaos" ? "Abilities cost energy and end your turn. Your king still has to survive. A rocket or sniper shot can finish the match by taking the enemy king." : "Standard chess is active: legal moves, check, checkmate, stalemate, castling, promotion, and en passant.") + '</p></section>' +
     '</aside></div>';
 }
@@ -1403,6 +1404,10 @@ function handleAction(action, element) {
   else if (action === "claim-quest") updateDailyClaim(element.dataset.quest);
   else if (action === "buy-skin") buySkin(element.dataset.skin);
   else if (action === "equip-skin") equipSkin(element.dataset.skin);
+  else if (action === "buy-piece") buyPieceSkin(element.dataset.piece);
+  else if (action === "equip-piece") equipPieceSkin(element.dataset.piece);
+  else if (action === "buy-emote") buyEmote(element.dataset.emoteId);
+  else if (action === "equip-emote") equipEmote(element.dataset.emoteId);
   else if (action === "save-name") {
     const input = $("#profile-name-input");
     const name = (input.value || "").trim().replace(/\s+/g, " ").slice(0, 16);
@@ -1427,6 +1432,8 @@ document.addEventListener("click", event => {
   if (square) { handleSquareClick(square.dataset.square); return; }
   const power = event.target.closest("[data-power]");
   if (power) { activatePower(power.dataset.power); return; }
+  const emote = event.target.closest("[data-emote]");
+  if (emote) { sendMatchEmote(emote.dataset.emote); return; }
   const mode = event.target.closest("[data-mode]");
   if (mode) {
     selectedMode = mode.dataset.mode;
@@ -1597,6 +1604,14 @@ function handlePeerStatus(message) {
 
 function handlePeerData(message) {
   if (!message || typeof message !== "object") return;
+  if (message.type === "emote") {
+    const item = EMOTES.find(entry => entry.id === message.id);
+    if (!item) return;
+    const speaker = String(message.name || net.remoteName || "OPPONENT").slice(0, 16);
+    if (net.role === "host" && peerRoom) peerRoom.send({ type: "emote", id: item.id, name: speaker });
+    toast(speaker + " " + item.icon + " " + item.name);
+    return;
+  }
   if (message.type === "disconnect") {
     net.connected = false;
     net.status = "Opponent disconnected.";
