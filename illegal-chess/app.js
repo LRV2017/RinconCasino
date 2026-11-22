@@ -278,7 +278,7 @@ function renderProfile() {
   return heading("PLAYER / IDENTITY", "YOUR FILE.", "Your profile, match record, unlocks, and achievements. Everything here is stored locally in your browser.") +
     '<div class="profile-layout"><section class="panel profile-card"><div class="profile-large-avatar">' + escapeHTML((profile.name || "R").slice(0, 1).toUpperCase()) + '</div><h2>' + escapeHTML(profile.name || "ROOKIE") + '</h2><p>' + rank.name + ' DIVISION · PLAYER LEVEL ' + level.level + '</p><div class="profile-xp"><div><span>EXPERIENCE POINTS</span><span>' + level.current + ' / ' + level.next + '</span></div><div class="xp-track"><i style="width:' + level.percent + '%"></i></div></div><div class="profile-edit"><input class="text-input" id="profile-name-input" maxlength="16" value="' + escapeHTML(profile.name) + '" aria-label="Player callsign"><button class="btn btn-primary btn-small" data-action="save-name">SAVE</button></div><button class="text-button" style="margin-top:14px" data-action="reset-profile">RESET LOCAL PROFILE</button></section>' +
     '<section class="panel"><div class="panel-heading"><h3>CAREER SNAPSHOT</h3><small>ALL TIME</small></div><div class="stats-row"><div class="stat-card"><div class="stat-top">MATCHES</div><div class="stat-value">' + profile.matches + '</div></div><div class="stat-card"><div class="stat-top">WINS</div><div class="stat-value">' + profile.wins + '</div></div><div class="stat-card"><div class="stat-top">LOSSES</div><div class="stat-value">' + profile.losses + '</div></div><div class="stat-card"><div class="stat-top">RATING</div><div class="stat-value">' + profile.rating + '</div></div></div><div class="panel-heading" style="margin-top:22px"><h3>ACHIEVEMENTS</h3><small>' + achievements.filter(item => item.done).length + ' / ' + achievements.length + ' UNLOCKED</small></div><div class="achievement-grid">' + achievements.map(item => '<div class="achievement" style="opacity:' + (item.done ? "1" : ".48") + '"><span class="achievement-icon">' + item.icon + '</span><div><strong>' + item.title + '</strong><small>' + item.desc + '</small></div></div>').join("") + '</div></section></div>' +
-    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL-FIRST</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">This first release does not require an account. Your name, rating, shards, match totals, quests, and unlocked cosmetics are stored in this browser's local storage. Clearing browser data removes this local profile. No online matchmaking, cloud saves, or public leaderboard is connected yet.</p></div>';
+    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL-FIRST</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">This first release does not require an account. Your name, rating, shards, match totals, quests, and unlocked cosmetics are stored in this browser local storage. Clearing browser data removes this local profile. No online matchmaking, cloud saves, or public leaderboard is connected yet.</p></div>';
 }
 
 function playerName(color) {
@@ -707,7 +707,7 @@ function handlePowerTarget(square) {
     frozen[enemy][square] = true;
     consumePower(color, id);
     advancePowerTurn(color, "Froze the enemy piece at " + square + ".");
-    toast("Frozen. It cannot move during the opponent's next turn.");
+    toast("Frozen. It cannot move during the opponent next turn.");
     return;
   }
   if (id === "shield") {
