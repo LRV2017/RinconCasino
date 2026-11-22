@@ -118,6 +118,7 @@ let cloudState = { user: null, status: cloudConfigured ? "CONNECTING TO CLOUD…
 let cloudConflict = null;
 let cloudSaveTimer = null;
 let cloudHydratingUserId = null;
+let cloudLoadedUserId = null;
 let cloudAuthSubscription = null;
 
 function saveProfile() {
@@ -1353,7 +1354,6 @@ if (!profile.daily || profile.daily.date !== todayKey()) {
   profile.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
   saveProfile();
 }
-render();
 
 
 function renderOnline() {
@@ -1926,3 +1926,7 @@ async function useLocalConflict() {
   render();
 }
 
+
+
+initCloud();
+render();
