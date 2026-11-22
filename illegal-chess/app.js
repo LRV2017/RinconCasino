@@ -736,12 +736,29 @@ function advancePowerTurn(color, message) {
   publishNetState();
   return true;
 }
+function nearestFriendlyPiece(target, color) {
+  const board = chess.board();
+  let best = null;
+  let bestDistance = Infinity;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const piece = board[r][c];
+    if (!piece || piece.color !== color) continue;
+    const square = String.fromCharCode(97 + c) + (8 - r);
+    const distance = squareDistance(square, target);
+    if (distance < bestDistance) { bestDistance = distance; best = square; }
+  }
+  return best;
+}
+function coordSquare(file, rank) {
+  if (file < 0 || file > 7 || rank < 0 || rank > 7) return null;
+  return String.fromCharCode(97 + file) + (rank + 1);
+}
 function handlePowerTarget(square) {
   const power = pendingPower;
   if (!power) return;
   if (opponent === "online" && net.role === "guest" && !handlingRemote) {
     const piece = chess.get(square);
-    if ((power.id === "teleport" || power.id === "swap") && !power.from) {
+    if ((power.id === "teleport" || power.id === "swap" || power.id === "clone" || power.id === "exchange") && !power.from) {
       if (!piece || piece.color !== "b" || piece.type === "k") { toast("Choose one of your non-king pieces.", "error"); return; }
       power.from = square;
       render();
@@ -887,6 +904,133 @@ function handlePowerTarget(square) {
     consumePower(color, id);
     advancePowerTurn(color, "Swapped " + from + " with " + square + ".");
     toast("Positions swapped.");
+    return;
+  }
+  if (id === "clone") {
+    if (!power.from) {
+      if (!piece || piece.color !== color || piece.type === "k") { toast("Choose one of your non-king pieces.", "error"); return; }
+      power.from = square;
+      render();
+      toast("Choose an empty square for its copy.");
+      return;
+    }
+    const source = chess.get(power.from);
+    if (!source || source.color !== color || piece || (source.type === "p" && (square[1] === "1" || square[1] === "8"))) { toast("Choose a valid empty destination.", "error"); return; }
+    const before = chess.fen();
+    chess.put({ type: source.type, color: source.color }, square);
+    if (chess.isCheck()) { chess = new Chess(before); toast("The clone would leave your king exposed.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Copied " + source.type.toUpperCase() + " onto " + square + ".");
+    toast("Piece cloned.");
+    return;
+  }
+  if (id === "convert") {
+    if (!piece || piece.color !== enemy || piece.type !== "p") { toast("Choose an enemy pawn.", "error"); return; }
+    const before = chess.fen();
+    chess.remove(square);
+    chess.put({ type: "p", color: color }, square);
+    if (chess.isCheck()) { chess = new Chess(before); toast("That conversion would expose your king.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Converted the pawn on " + square + ".");
+    toast("Pawn converted.");
+    return;
+  }
+  if (id === "summon") {
+    const homeRank = color === "w" ? "2" : "7";
+    if (piece || square[1] !== homeRank) { toast("Choose an empty square on your original pawn rank.", "error"); return; }
+    chess.put({ type: "p", color: color }, square);
+    if (chess.isCheck()) { chess.remove(square); toast("That summon would expose your king.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Summoned a pawn at " + square + ".");
+    toast("A new pawn joins the board.");
+    return;
+  }
+  if (id === "promote") {
+    if (!piece || piece.color !== color || piece.type !== "p") { toast("Choose one of your pawns.", "error"); return; }
+    const before = chess.fen();
+    chess.remove(square);
+    chess.put({ type: "q", color: color }, square);
+    if (chess.isCheck()) { chess = new Chess(before); toast("That promotion would expose your king.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Promoted the pawn on " + square + " into a queen.");
+    toast("Pawn ascended to queen.");
+    return;
+  }
+  if (id === "fortify") {
+    if (!piece || piece.color !== color || piece.type === "k") { toast("Choose a friendly non-king piece.", "error"); return; }
+    const rank = rankOf(square);
+    const file = fileOf(square);
+    for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) {
+      const target = coordSquare(file + df, rank + dr);
+      const targetPiece = target && chess.get(target);
+      if (targetPiece && targetPiece.color === color && targetPiece.type !== "k") shielded[color][target] = true;
+    }
+    consumePower(color, id);
+    advancePowerTurn(color, "Fortified the friendly formation around " + square + ".");
+    toast("Nearby pieces fortified.");
+    return;
+  }
+  if (id === "silence") {
+    if (!piece || piece.color !== enemy || piece.type === "k") { toast("Choose an enemy non-king piece.", "error"); return; }
+    powerLocked[enemy] = true;
+    consumePower(color, id);
+    advancePowerTurn(color, "Sealed the opponent's power for one turn.");
+    toast("Opponent power sealed.");
+    return;
+  }
+  if (id === "prison") {
+    const rank = square[1];
+    const board = chess.board();
+    let caught = 0;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const target = board[r][c];
+      const targetSquare = String.fromCharCode(97 + c) + (8 - r);
+      if (target && target.color === enemy && target.type !== "k" && targetSquare[1] === rank) { frozen[enemy][targetSquare] = true; caught++; }
+    }
+    if (!caught) { toast("There are no enemy pieces on that rank.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Imprisoned " + caught + " enemy piece(s) on rank " + rank + ".");
+    toast(caught + " enemy piece(s) imprisoned.");
+    return;
+  }
+  if (id === "push" || id === "pull") {
+    if (!piece || piece.color !== enemy || piece.type === "k") { toast("Choose an enemy non-king piece.", "error"); return; }
+    const allySquare = nearestFriendlyPiece(square, color);
+    if (!allySquare) return;
+    const dx = Math.sign(fileOf(square) - fileOf(allySquare));
+    const dy = Math.sign(rankOf(square) - rankOf(allySquare));
+    const direction = id === "push" ? 1 : -1;
+    const destination = coordSquare(fileOf(square) + dx * direction, rankOf(square) + dy * direction);
+    if (!destination || chess.get(destination)) { toast("There is no open square in that direction.", "error"); return; }
+    const before = chess.fen();
+    const moving = chess.remove(square);
+    if (!moving || !chess.put(moving, destination) || chess.isCheck()) {
+      chess = new Chess(before);
+      toast("That displacement is blocked or would expose your king.", "error");
+      return;
+    }
+    consumePower(color, id);
+    advancePowerTurn(color, (id === "push" ? "Pushed " : "Pulled ") + square + " to " + destination + ".");
+    toast(id === "push" ? "Enemy piece knocked back." : "Enemy piece pulled closer.");
+    return;
+  }
+  if (id === "exchange") {
+    if (!power.from) {
+      if (!piece || piece.color !== color || piece.type === "k") { toast("Choose one friendly non-king piece.", "error"); return; }
+      power.from = square;
+      render();
+      toast("Choose an enemy non-king piece to trade.");
+      return;
+    }
+    if (!piece || piece.color !== enemy || piece.type === "k") { toast("Choose an enemy non-king piece.", "error"); return; }
+    const before = chess.fen();
+    const first = chess.remove(power.from);
+    const second = chess.remove(square);
+    if (first && second) { chess.put(first, square); chess.put(second, power.from); }
+    if (chess.isCheck()) { chess = new Chess(before); toast("That exchange would expose your king.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Exchanged " + power.from + " with " + square + ".");
+    toast("Pieces exchanged.");
   }
 }
 
