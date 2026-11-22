@@ -1,0 +1,1073 @@
+import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
+
+const PROFILE_KEY = "rogueboard.profile.v1";
+const PUZZLE_FEN = "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1";
+const PIECES = {
+  w: { k: "♔", q: "♕", r: "♖", b: "♗", n: "♘", p: "♙" },
+  b: { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" }
+};
+const VALUES = { p: 100, n: 315, b: 330, r: 500, q: 900, k: 0 };
+const RANKS = [
+  { name: "ROOKIE", min: 0, color: "#9aa69d" },
+  { name: "BRONZE", min: 1100, color: "#c68c5b" },
+  { name: "SILVER", min: 1250, color: "#c5d2d2" },
+  { name: "GOLD", min: 1450, color: "#e4c65e" },
+  { name: "DIAMOND", min: 1700, color: "#87d8ef" },
+  { name: "MASTER", min: 2000, color: "#b49cff" }
+];
+const POWERS = [
+  { id: "rocket", name: "ROCKET", icon: "🚀", cost: 3, desc: "Blast an enemy piece within 2 squares." },
+  { id: "teleport", name: "BLINK", icon: "🌀", cost: 3, desc: "Warp one of your pieces to any square." },
+  { id: "freeze", name: "FREEZE", icon: "❄", cost: 2, desc: "Lock one enemy piece for their next turn." },
+  { id: "shield", name: "SHIELD", icon: "⬡", cost: 2, desc: "Protect one friendly piece from a capture." },
+  { id: "sniper", name: "SNIPER", icon: "⌖", cost: 4, desc: "Shoot a piece along a clear line." },
+  { id: "swap", name: "SWAP", icon: "⇄", cost: 3, desc: "Switch the positions of two friendly pieces." },
+  { id: "haste", name: "DOUBLE TIME", icon: "⏱", cost: 4, desc: "Take two moves before your opponent." }
+];
+const SKINS = [
+  { id: "standard", name: "FIELD ISSUE", price: 0, desc: "The original arena. Clean, cold, and ready.", light: "#c9cbb0", dark: "#607263" },
+  { id: "obsidian", name: "OBSIDIAN", price: 250, desc: "Steel grey tiles for a colder kind of victory.", light: "#989c9a", dark: "#3e4544" },
+  { id: "ember", name: "EMBERFALL", price: 350, desc: "Burnt oak and ash. Leave nothing standing.", light: "#d4ac83", dark: "#674235" },
+  { id: "emerald", name: "VERDANT", price: 450, desc: "Deep forest green with pale stone.", light: "#bdd0b9", dark: "#315d4d" },
+  { id: "royal", name: "ROYAL STATIC", price: 600, desc: "Violet marble for players above the rules.", light: "#d4c7e3", dark: "#514766" }
+];
+const DAILY_QUESTS = [
+  { id: "play", title: "SHOW UP", icon: "♟", desc: "Finish any match today.", goal: 1, reward: 100, key: "matches" },
+  { id: "capture", title: "TAKE WHAT'S YOURS", icon: "⚔", desc: "Capture 4 enemy pieces.", goal: 4, reward: 125, key: "captures" },
+  { id: "win", title: "NO MERCY", icon: "✦", desc: "Win a match against the bot.", goal: 1, reward: 175, key: "wins" }
+];
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const opposite = color => color === "w" ? "b" : "w";
+const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+
+function makeProfile() {
+  return {
+    name: "ROOKIE",
+    xp: 0,
+    credits: 450,
+    rating: 1000,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    matches: 0,
+    captures: 0,
+    streak: 0,
+    bestStreak: 0,
+    unlockedSkins: ["standard"],
+    equippedSkin: "standard",
+    daily: { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] },
+    sound: true
+  };
+}
+function loadProfile() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+    if (!saved || typeof saved !== "object") return makeProfile();
+    const base = makeProfile();
+    const merged = Object.assign(base, saved);
+    if (!merged.daily || merged.daily.date !== todayKey()) merged.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
+    if (!Array.isArray(merged.unlockedSkins)) merged.unlockedSkins = ["standard"];
+    if (!merged.unlockedSkins.includes("standard")) merged.unlockedSkins.unshift("standard");
+    if (!merged.daily.claimed) merged.daily.claimed = [];
+    return merged;
+  } catch (error) {
+    return makeProfile();
+  }
+}
+let profile = loadProfile();
+let currentView = "home";
+let selectedMode = "chaos";
+let selectedOpponent = "bot";
+let selectedDifficulty = "steady";
+let chess = null;
+let matchMode = "chaos";
+let opponent = "bot";
+let difficulty = "steady";
+let gameOver = false;
+let botThinking = false;
+let puzzleActive = false;
+let puzzleSolved = false;
+let selectedSquare = null;
+let pendingPower = null;
+let energy = { w: 5, b: 5 };
+let frozen = { w: {}, b: {} };
+let shielded = { w: {}, b: {} };
+let doubleMoves = 0;
+let boardFlipped = false;
+let actionLog = [];
+let gameCaptures = 0;
+let lastResult = null;
+let activeSkin = profile.equippedSkin || "standard";
+let resultModalVisible = false;
+
+function saveProfile() {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { toast("Could not save this profile in your browser.", "error"); }
+  syncChrome();
+}
+function levelInfo() {
+  const level = Math.floor(profile.xp / 400) + 1;
+  return { level, current: profile.xp % 400, next: 400, percent: (profile.xp % 400) / 4 };
+}
+function currentRank() {
+  let rank = RANKS[0];
+  RANKS.forEach(item => { if (profile.rating >= item.min) rank = item; });
+  return rank;
+}
+function rankProgress() {
+  const index = RANKS.findIndex(item => item.name === currentRank().name);
+  const current = currentRank();
+  const next = RANKS[Math.min(index + 1, RANKS.length - 1)];
+  if (index === RANKS.length - 1) return { percent: 100, next: "MAX RANK", remaining: 0 };
+  return {
+    percent: clamp(((profile.rating - current.min) / (next.min - current.min)) * 100, 0, 100),
+    next: next.name,
+    remaining: Math.max(0, next.min - profile.rating)
+  };
+}
+function syncChrome() {
+  const name = (profile.name || "ROOKIE").toUpperCase();
+  const rank = currentRank().name;
+  $("#side-name").textContent = name;
+  $("#side-rank").textContent = rank + " · LVL " + levelInfo().level;
+  $("#top-coins").textContent = profile.credits.toLocaleString();
+  $("#top-avatar").textContent = name.slice(0, 1);
+  $$(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.view === currentView));
+  const titles = { home: "THE ARENA", play: "CHOOSE YOUR FIGHT", practice: "TRAINING LAB", armory: "THE ARMORY", quests: "DAILY CONTRACTS", rank: "SEASON 01", profile: "PLAYER PROFILE", match: "LIVE MATCH" };
+  $("#top-section").textContent = titles[currentView] || "THE ARENA";
+}
+function toast(message, type = "success") {
+  const stack = $("#toast-stack");
+  const item = document.createElement("div");
+  item.className = "toast" + (type === "error" ? " error" : "");
+  item.textContent = message;
+  stack.appendChild(item);
+  window.setTimeout(() => item.remove(), 3000);
+}
+function heading(label, title, copy, extra = "") {
+  return '<div class="page-heading"><div><div class="eyebrow">' + label + '</div><h1>' + title + '</h1><p>' + copy + '</p></div>' + extra + '</div>';
+}
+function miniBoardHTML() {
+  const setup = [
+    ["♜","♞","♝","♛","♚","♝","♞","♜"],
+    ["♟","♟","♟","♟","♟","♟","♟","♟"],
+    ["","","","","","","",""],
+    ["","","","♞","","","",""],
+    ["","","","♙","","","",""],
+    ["","","","","","","",""],
+    ["♙","♙","♙","♙","♙","♙","♙","♙"],
+    ["♖","♘","♗","♕","♔","♗","♘","♖"]
+  ];
+  let html = "";
+  setup.forEach((row, r) => row.forEach((piece, c) => {
+    html += '<div class="hero-tile ' + ((r + c) % 2 ? "dark" : "light") + '">' + (piece ? '<span class="hero-piece">' + piece + '</span>' : "") + '</div>';
+  }));
+  return html;
+}
+
+function renderHome() {
+  const rank = currentRank();
+  const level = levelInfo();
+  return '<section class="home-hero">' +
+    '<div class="hero-copy"><div class="eyebrow">THE RULEBOOK IS OPTIONAL</div><h1>GOOD CHESS.<span>BAD INTENTIONS.</span></h1><p>Forget opening theory. Bring a rocket launcher. Teleport your queen. Freeze the entire board. This is chess with the safety off.</p><div class="hero-actions"><button class="btn btn-primary" data-action="go-play">ENTER THE ARENA <span>↗</span></button><span class="hero-note"><span>●</span> YOUR PROGRESS SAVES ON THIS DEVICE</span></div></div>' +
+    '<div class="hero-art"><div class="hero-glow"></div><div class="hero-board">' + miniBoardHTML() + '</div><span class="hero-coordinate top">E4 // NO RULES</span><span class="hero-coordinate bottom">8 × 8 // CHAOS ENGINE</span><span class="hero-sticker">CHECKMATE IS A SUGGESTION.</span></div>' +
+    '</section>' +
+    '<div class="home-grid"><div>' +
+      '<div class="stats-row">' +
+        '<div class="stat-card"><div class="stat-top">MATCHES <span class="stat-icon">♟</span></div><div class="stat-value">' + profile.matches + '</div><div class="stat-foot">YOUR ARENA RECORD</div></div>' +
+        '<div class="stat-card"><div class="stat-top">WIN RATE <span class="stat-icon">↗</span></div><div class="stat-value">' + (profile.matches ? Math.round(profile.wins / profile.matches * 100) : 0) + '<small style="font:14px var(--mono)">%</small></div><div class="stat-foot"><b>' + profile.wins + ' W</b> · ' + profile.losses + ' L · ' + profile.draws + ' D</div></div>' +
+        '<div class="stat-card"><div class="stat-top">RATING <span class="stat-icon">◈</span></div><div class="stat-value">' + profile.rating + '</div><div class="stat-foot">' + rank.name + ' DIVISION</div></div>' +
+        '<div class="stat-card"><div class="stat-top">PLAYER LEVEL <span class="stat-icon">✦</span></div><div class="stat-value">' + level.level + '</div><div class="stat-foot">' + level.current + ' / 400 XP TO NEXT</div></div>' +
+      '</div>' +
+      '<section class="panel section-gap"><div class="panel-heading"><h3>CHOOSE YOUR RULESET</h3><button class="ghost-link" data-view="play">ALL MODES ↗</button></div><div class="quick-modes">' +
+        '<button class="mode-card" data-watermark="!" data-action="quick-chaos"><span class="mode-tag">01 / THE MAIN EVENT</span><strong>CHAOS CHESS</strong><p>7 abilities. 0 apologies.</p></button>' +
+        '<button class="mode-card" data-watermark="♟" data-action="quick-classic"><span class="mode-tag">02 / PURE SKILL</span><strong>CLASSIC</strong><p>Just you, them, and the board.</p></button>' +
+      '</div></section>' +
+      '<section class="panel section-gap"><div class="panel-heading"><h3>ARENA ACTIVITY</h3><small>THIS DEVICE</small></div><div class="activity-list">' +
+        '<div class="activity-item"><span class="activity-icon">✦</span><div><strong>' + (profile.wins ? "You have " + profile.wins + " victories on record" : "Your first victory is waiting") + '</strong><small>' + (profile.matches ? "Keep your streak alive." : "Play a match to start your record.") + '</small></div><span>NOW</span></div>' +
+        '<div class="activity-item"><span class="activity-icon">◈</span><div><strong>' + profile.credits.toLocaleString() + ' shards in your vault</strong><small>Earn more by completing daily contracts.</small></div><span>WALLET</span></div>' +
+        '<div class="activity-item"><span class="activity-icon">⬡</span><div><strong>' + profile.captures + ' pieces captured</strong><small>Every piece is a lesson. Usually a painful one.</small></div><span>CAREER</span></div>' +
+      '</div></section>' +
+    '</div>' +
+    '<div style="display:grid;gap:13px;align-content:start">' +
+      '<section class="panel challenge-card"><div class="challenge-top"><span>✦ DAILY CONTRACT</span><span>+100 ◈</span></div><div class="challenge-art"><span>♞</span><span>♛</span><span>♜</span></div><h3>THE OPENING ACT</h3><p>Finish one match today. Win or lose, show up and make a mess.</p><button class="btn btn-secondary" data-view="quests">VIEW CONTRACTS ↗</button></section>' +
+      '<section class="panel"><div class="panel-heading"><h3>YOUR PROGRESSION</h3><small>LEVEL ' + level.level + '</small></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font:9px var(--mono);color:var(--muted)">EXPERIENCE</span><strong style="font:10px var(--mono);color:var(--lime)">' + level.current + ' / 400</strong></div><div class="xp-track"><i style="width:' + level.percent + '%"></i></div><div style="display:flex;justify-content:space-between;margin-top:17px"><span style="font:9px var(--mono);color:var(--muted)">CURRENT DIVISION</span><b style="font:11px var(--display);color:' + rank.color + '">' + rank.name + '</b></div><button class="ghost-link" style="padding:14px 0 0" data-view="rank">VIEW SEASON RANK ↗</button></section>' +
+    '</div></div>';
+}
+
+function renderPlay() {
+  const modes = [
+    { id: "chaos", title: "CHAOS CHESS", tag: "THE MAIN EVENT", pill: "RECOMMENDED", icon: "♜", desc: "Traditional chess gets thrown out the window. Use abilities to blast, freeze, teleport, and outplay your opponent.", features: ["7 POWERS", "ENERGY SYSTEM", "BOT OPPONENT"], banner: "chaos" },
+    { id: "classic", title: "CLASSIC", tag: "NO SHORTCUTS", pill: "PURE SKILL", icon: "♔", desc: "Every move has to be earned. Full legal chess rules, promotion, castling, en passant, check and checkmate.", features: ["STANDARD RULES", "NO POWERS", "BOT OPPONENT"], banner: "classic" },
+    { id: "local", title: "LOCAL DUEL", tag: "SAME DEVICE", pill: "2 PLAYERS", icon: "⚔", desc: "Challenge a friend sitting next to you. Pass the keyboard after every move. Chaos or classic rules.", features: ["HOTSEAT", "2 HUMAN PLAYERS", "PRIVATE"], banner: "training" }
+  ];
+  let cards = "";
+  modes.forEach(mode => {
+    cards += '<button class="mode-select-card ' + (selectedMode === mode.id ? "selected" : "") + '" data-mode="' + mode.id + '"><div class="mode-banner ' + mode.banner + '"><span class="big-symbol">' + mode.icon + '</span></div><div class="mode-card-content"><div class="mode-meta"><span>' + mode.tag + '</span><span class="pill">' + mode.pill + '</span></div><h3>' + mode.title + '</h3><p>' + mode.desc + '</p><div class="mode-features">' + mode.features.map(item => '<span>' + item + '</span>').join("") + '</div></div></button>';
+  });
+  return heading("MATCHMAKING / CONFIGURATION", "PICK YOUR POISON.", "Choose how you want to play. Your match history and unlocks stay saved in this browser.") +
+    '<div class="mode-select-grid">' + cards + '</div>' +
+    '<div class="setup-bar"><div class="setup-field"><label for="opponent-select">OPPONENT</label><select id="opponent-select"><option value="bot" ' + (selectedOpponent === "bot" ? "selected" : "") + '>Training bot</option><option value="local" ' + (selectedOpponent === "local" ? "selected" : "") + '>Local 2-player</option></select></div><div class="setup-field"><label for="difficulty-select">BOT DIFFICULTY</label><select id="difficulty-select"><option value="easy" ' + (selectedDifficulty === "easy" ? "selected" : "") + '>Rookie</option><option value="steady" ' + (selectedDifficulty === "steady" ? "selected" : "") + '>Tactical</option><option value="hard" ' + (selectedDifficulty === "hard" ? "selected" : "") + '>Ruthless</option></select></div><div class="setup-field"><label>YOUR LOADOUT</label><div style="height:35px;display:flex;align-items:center;color:var(--lime);font:9px var(--mono)">◈ ' + (selectedMode === "chaos" ? "7 POWERS EQUIPPED" : "STANDARD RULESET") + '</div></div><button class="btn btn-primary" data-action="start-match">START MATCH <span>↗</span></button></div>' +
+    '<div class="panel section-gap" style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap"><div><div class="eyebrow">NOT READY FOR A FIGHT?</div><h3 style="font:700 23px var(--display);margin:9px 0 4px">WARM UP IN THE TRAINING LAB.</h3><p style="color:var(--muted);font-size:10px;margin:0">Learn the powers, solve a mate-in-one, or test a new idea without risking your rating.</p></div><button class="btn btn-secondary" data-view="practice">OPEN TRAINING LAB ↗</button></div>';
+}
+
+function renderPractice() {
+  return heading("TRAINING / EXPERIMENTATION", "GET DANGEROUS.", "Practice the fundamentals, then learn exactly when to stop respecting them.") +
+    '<div class="training-grid">' +
+      '<article class="training-card"><div class="training-icon">♛</div><div class="eyebrow">PUZZLE 001 / MATE IN ONE</div><h3>ONE MOVE. NO ESCAPE.</h3><p>White to move. Find the forced checkmate in one. No powers, no gimmicks — just a clean finish.</p><button class="btn btn-primary" data-action="start-puzzle">SOLVE THE PUZZLE ↗</button></article>' +
+      '<article class="training-card"><div class="training-icon">⚡</div><div class="eyebrow">SANDBOX / CHAOS MODE</div><h3>TEST THE ILLEGAL STUFF.</h3><p>Play the bot with the full ability loadout. Experiment with range, timing, and piece protection.</p><button class="btn btn-secondary" data-action="start-lab">ENTER THE POWER LAB ↗</button></article>' +
+      '<article class="training-card"><div class="training-icon">⌖</div><div class="eyebrow">COMING NEXT / TACTICAL REPLAY</div><h3>REVIEW YOUR MISTAKES.</h3><p>Move-by-move analysis and a post-match review timeline are planned for a future update.</p><button class="btn btn-secondary" disabled>IN DEVELOPMENT</button></article>' +
+      '<article class="training-card"><div class="training-icon">◈</div><div class="eyebrow">FIELD GUIDE / POWERS</div><h3>KNOW YOUR ADVANTAGE.</h3><p>Review every ability, its energy cost, and the situations where it can turn a losing position around.</p><button class="btn btn-secondary" data-view="armory">EXPLORE THE ARMORY ↗</button></article>' +
+    '</div>';
+}
+
+function renderArmory() {
+  const items = SKINS.map(skin => {
+    const owned = profile.unlockedSkins.includes(skin.id);
+    const equipped = profile.equippedSkin === skin.id;
+    let action = equipped ? '<button class="btn btn-secondary btn-small" disabled>EQUIPPED</button>' : owned ? '<button class="btn btn-primary btn-small" data-action="equip-skin" data-skin="' + skin.id + '">EQUIP</button>' : '<button class="btn btn-secondary btn-small" data-action="buy-skin" data-skin="' + skin.id + '">UNLOCK</button>';
+    return '<article class="skin-card"><div class="skin-preview"><div class="swatch-board" style="--swatch-light:' + skin.light + ';--swatch-dark:' + skin.dark + '">' + Array.from({ length: 16 }, () => "<span></span>").join("") + '</div></div><div class="skin-info"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3>' + skin.name + '</h3><span class="skin-price">' + (skin.price ? skin.price + " ◈" : "FREE") + '</span></div><p>' + skin.desc + '</p><div class="skin-foot"><span style="font:8px var(--mono);color:' + (owned ? "var(--lime)" : "var(--muted)") + '">' + (owned ? "OWNED" : "LOCKED") + '</span>' + action + '</div></div></article>';
+  }).join("");
+  return heading("COSMETICS / LOADOUT", "MAKE IT YOURS.", "No pay-to-win nonsense. Every item is cosmetic, and all unlocks use earned in-game shards.") +
+    '<div class="panel" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;gap:12px"><div><div class="eyebrow">YOUR WALLET</div><div style="font:700 26px var(--display);margin-top:5px">' + profile.credits.toLocaleString() + ' <span style="color:var(--lime)">◈ SHARDS</span></div></div><span style="color:var(--muted);font-size:9px;text-align:right">Earn shards by finishing matches<br>and claiming daily contracts.</span></div>' +
+    '<div class="inventory-grid">' + items + '</div>' +
+    '<div class="panel section-gap"><div class="eyebrow">ABILITY LOADOUT / ALWAYS EQUIPPED IN CHAOS</div><h3 style="font:700 24px var(--display);margin:8px 0 5px">THE SEVEN RULEBREAKERS</h3><p style="color:var(--muted);font-size:10px;line-height:1.6;margin:0 0 14px">Abilities are earned through play in this first release. They are not purchases, and they cannot be used in Classic mode.</p><div class="mode-features">' + POWERS.map(power => '<span>' + power.icon + " " + power.name + " · " + power.cost + " ENERGY</span>").join("") + '</div></div>';
+}
+
+function renderQuests() {
+  const cards = DAILY_QUESTS.map(quest => {
+    const progress = profile.daily[quest.key] || 0;
+    const claimed = profile.daily.claimed.includes(quest.id);
+    const done = progress >= quest.goal;
+    return '<article class="quest-card"><div class="quest-icon">' + quest.icon + '</div><h3>' + quest.title + '</h3><p>' + quest.desc + '</p><div class="quest-progress"><i style="width:' + clamp(progress / quest.goal * 100, 0, 100) + '%"></i></div><div class="quest-foot"><span>' + Math.min(progress, quest.goal) + ' / ' + quest.goal + ' COMPLETE</span><span>' + (done ? "READY" : "IN PROGRESS") + '</span></div><div class="quest-reward"><span>◈ ' + quest.reward + ' SHARDS</span>' + (claimed ? '<button class="btn btn-secondary btn-small" disabled>CLAIMED</button>' : '<button class="btn ' + (done ? "btn-primary" : "btn-secondary") + ' btn-small" data-action="claim-quest" data-quest="' + quest.id + '" ' + (done ? "" : "disabled") + '>CLAIM</button>') + '</div></article>';
+  }).join("");
+  return heading("DAILY / RESET AT MIDNIGHT UTC", "EARN YOUR EDGE.", "Complete small contracts to stack shards and XP. Daily progress is saved on this device.") +
+    '<div class="quest-grid">' + cards + '</div>' +
+    '<div class="panel section-gap"><div class="panel-heading"><h3>CONTRACT RULES</h3><small>NO PURCHASES / NO SHORTCUTS</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">Finish matches against the bot to advance your daily contracts. A capture only counts when you make it. Claim each completed contract once before the daily reset.</p></div>';
+}
+
+function renderRank() {
+  const rank = currentRank();
+  const progress = rankProgress();
+  const level = levelInfo();
+  const ladder = [
+    ["I", "ROOKIE", "0 – 1,099", "You are here"],
+    ["II", "BRONZE", "1,100 – 1,249", "Earn your first stripe"],
+    ["III", "SILVER", "1,250 – 1,449", "Prove your consistency"],
+    ["IV", "GOLD", "1,450 – 1,699", "A serious contender"],
+    ["V", "DIAMOND", "1,700 – 1,999", "The upper board"],
+    ["VI", "MASTER", "2,000+", "No more excuses"]
+  ];
+  return heading("SEASON 01 / LOCAL LADDER", "CLIMB THE BOARD.", "Your rating changes after bot matches. This is a local progression system; a worldwide online leaderboard is not connected yet.") +
+    '<div class="rank-layout"><section class="panel rank-card"><div class="rank-label">CURRENT DIVISION / SEASON 01</div><div class="rank-name" style="color:' + rank.color + '">' + rank.name + '</div><div class="rank-rating"><strong>' + profile.rating + '</strong> ELO · LEVEL ' + level.level + '</div><div class="rank-bar"><div class="rank-bar-track"><i style="width:' + progress.percent + '%"></i></div><small><span>' + rank.name + '</span><span>' + (progress.remaining ? progress.remaining + ' POINTS TO ' + progress.next : 'TOP DIVISION') + '</span></small></div></section>' +
+    '<section class="panel"><div class="panel-heading"><h3>DIVISION LADDER</h3><small>SEASON 01</small></div><div class="rank-ladder">' + ladder.map(item => '<div class="ladder-row"><span class="ladder-medal">' + item[0] + '</span><div><strong>' + item[1] + '</strong><small>' + item[2] + '</small></div><em>' + (item[1] === rank.name ? "CURRENT" : item[3]) + '</em></div>').join("") + '</div></section></div>' +
+    '<section class="panel section-gap"><div class="panel-heading"><h3>SEASON STATS</h3><small>LOCAL PROFILE</small></div><div class="stats-row"><div class="stat-card"><div class="stat-top">WINS</div><div class="stat-value">' + profile.wins + '</div><div class="stat-foot">CAREER TOTAL</div></div><div class="stat-card"><div class="stat-top">BEST STREAK</div><div class="stat-value">' + profile.bestStreak + '</div><div class="stat-foot">CONSECUTIVE WINS</div></div><div class="stat-card"><div class="stat-top">CAPTURES</div><div class="stat-value">' + profile.captures + '</div><div class="stat-foot">PIECES REMOVED</div></div><div class="stat-card"><div class="stat-top">WIN RATE</div><div class="stat-value">' + (profile.matches ? Math.round(profile.wins / profile.matches * 100) : 0) + '%</div><div class="stat-foot">ALL RECORDED MATCHES</div></div></div></section>';
+}
+
+function renderProfile() {
+  const level = levelInfo();
+  const rank = currentRank();
+  const achievements = [
+    { icon: "♟", title: "FIRST BLOOD", desc: profile.matches ? "First match completed" : "Finish your first match", done: profile.matches >= 1 },
+    { icon: "✦", title: "THE FINISHER", desc: "Win 5 matches", done: profile.wins >= 5 },
+    { icon: "⚔", title: "COLLECTOR", desc: "Capture 25 pieces", done: profile.captures >= 25 },
+    { icon: "◈", title: "ON THE RISE", desc: "Reach 1,250 rating", done: profile.rating >= 1250 }
+  ];
+  return heading("PLAYER / IDENTITY", "YOUR FILE.", "Your profile, match record, unlocks, and achievements. Everything here is stored locally in your browser.") +
+    '<div class="profile-layout"><section class="panel profile-card"><div class="profile-large-avatar">' + escapeHTML((profile.name || "R").slice(0, 1).toUpperCase()) + '</div><h2>' + escapeHTML(profile.name || "ROOKIE") + '</h2><p>' + rank.name + ' DIVISION · PLAYER LEVEL ' + level.level + '</p><div class="profile-xp"><div><span>EXPERIENCE POINTS</span><span>' + level.current + ' / ' + level.next + '</span></div><div class="xp-track"><i style="width:' + level.percent + '%"></i></div></div><div class="profile-edit"><input class="text-input" id="profile-name-input" maxlength="16" value="' + escapeHTML(profile.name) + '" aria-label="Player callsign"><button class="btn btn-primary btn-small" data-action="save-name">SAVE</button></div><button class="text-button" style="margin-top:14px" data-action="reset-profile">RESET LOCAL PROFILE</button></section>' +
+    '<section class="panel"><div class="panel-heading"><h3>CAREER SNAPSHOT</h3><small>ALL TIME</small></div><div class="stats-row"><div class="stat-card"><div class="stat-top">MATCHES</div><div class="stat-value">' + profile.matches + '</div></div><div class="stat-card"><div class="stat-top">WINS</div><div class="stat-value">' + profile.wins + '</div></div><div class="stat-card"><div class="stat-top">LOSSES</div><div class="stat-value">' + profile.losses + '</div></div><div class="stat-card"><div class="stat-top">RATING</div><div class="stat-value">' + profile.rating + '</div></div></div><div class="panel-heading" style="margin-top:22px"><h3>ACHIEVEMENTS</h3><small>' + achievements.filter(item => item.done).length + ' / ' + achievements.length + ' UNLOCKED</small></div><div class="achievement-grid">' + achievements.map(item => '<div class="achievement" style="opacity:' + (item.done ? "1" : ".48") + '"><span class="achievement-icon">' + item.icon + '</span><div><strong>' + item.title + '</strong><small>' + item.desc + '</small></div></div>').join("") + '</div></section></div>' +
+    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL-FIRST</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">This first release does not require an account. Your name, rating, shards, match totals, quests, and unlocked cosmetics are stored in this browser's local storage. Clearing browser data removes this local profile. No online matchmaking, cloud saves, or public leaderboard is connected yet.</p></div>';
+}
+
+function playerName(color) {
+  if (opponent === "local") return color === "w" ? (profile.name || "PLAYER 1") : "PLAYER 2";
+  return color === "w" ? (profile.name || "YOU") : "ROGUE BOT";
+}
+function pieceAt(square) { return chess ? chess.get(square) : null; }
+function currentLegalMoves(square) {
+  if (!chess) return [];
+  try {
+    return chess.moves({ square: square, verbose: true }).filter(move => !frozen[chess.turn()][move.from] && !shielded[opposite(chess.turn())][move.to]);
+  } catch (error) { return []; }
+}
+function kingSquare(color) {
+  if (!chess) return null;
+  const board = chess.board();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const piece = board[r][c];
+    if (piece && piece.type === "k" && piece.color === color) return String.fromCharCode(97 + c) + (8 - r);
+  }
+  return null;
+}
+function renderBoard() {
+  if (!chess) return "";
+  const board = chess.board();
+  const legal = selectedSquare ? currentLegalMoves(selectedSquare) : [];
+  const legalTargets = legal.map(move => move.to);
+  const last = chess.history({ verbose: true }).slice(-1)[0];
+  const checkedKing = chess.isCheck() ? kingSquare(chess.turn()) : null;
+  const rows = boardFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+  const cols = boardFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+  let html = "";
+  rows.forEach((r, ri) => cols.forEach((c, ci) => {
+    const square = String.fromCharCode(97 + c) + (8 - r);
+    const piece = board[r][c];
+    const isLegal = legalTargets.includes(square);
+    let classes = "square " + ((r + c) % 2 === 0 ? "light" : "dark");
+    if (selectedSquare === square) classes += " selected";
+    if (last && (last.from === square || last.to === square)) classes += last.from === square ? " last-from" : " last-to";
+    if (checkedKing === square) classes += " check-square";
+    const rankLabel = ci === 0 ? '<span class="coord rank">' + (8 - r) + '</span>' : "";
+    const fileLabel = ri === 7 ? '<span class="coord file">' + String.fromCharCode(97 + c) + '</span>' : "";
+    const marker = isLegal ? (piece ? '<i class="legal-ring"></i>' : '<i class="legal-dot"></i>') : "";
+    const shield = piece && shielded[piece.color][square] ? '<span style="position:absolute;right:5px;top:3px;z-index:4;color:#d8ff3f;font-size:10px">⬡</span>' : "";
+    const frozenMark = piece && frozen[piece.color][square] ? '<span style="position:absolute;left:5px;top:3px;z-index:4;color:#8bd6ff;font-size:10px">❄</span>' : "";
+    const pieceHtml = piece ? '<span class="piece ' + (piece.color === "w" ? "white" : "black") + '">' + PIECES[piece.color][piece.type] + '</span>' : "";
+    html += '<button class="' + classes + '" data-square="' + square + '" aria-label="' + square + (piece ? " " + piece.color + " " + piece.type : " empty") + '">' + rankLabel + fileLabel + marker + pieceHtml + shield + frozenMark + '</button>';
+  }));
+  return '<div class="board-frame"><div class="chess-board skin-' + escapeHTML(activeSkin) + '" id="chess-board">' + html + '</div></div>';
+}
+function energyPips(color) {
+  let html = "";
+  for (let i = 0; i < 6; i++) html += '<i class="energy-pip ' + (i < energy[color] ? "filled" : "") + '"></i>';
+  return html;
+}
+function renderLog() {
+  if (!actionLog.length) return '<div class="log-empty">No moves yet. Make the first one.</div>';
+  return actionLog.slice(-8).reverse().map((item, index) => '<div class="log-item"><span class="log-turn">' + String(actionLog.length - index).padStart(2, "0") + '</span><span class="log-name">' + item.who + '</span><span>' + escapeHTML(item.text) + '</span></div>').join("");
+}
+function renderPowerDeck() {
+  if (matchMode !== "chaos") return '<div class="mode-note">Classic rules are active. No powers, no shortcuts. Just legal moves and good decisions.</div>';
+  const isTurn = isHumanTurn() && !gameOver && !botThinking;
+  const cards = POWERS.map(power => {
+    const canUse = isTurn && energy[chess.turn()] >= power.cost && (!pendingPower || pendingPower.id === power.id);
+    return '<button class="ability-card ' + (pendingPower && pendingPower.id === power.id ? "active" : "") + '" data-power="' + power.id + '" ' + (canUse ? "" : "disabled") + '><span class="ability-top"><span class="ability-icon">' + power.icon + '</span><span class="ability-cost">' + power.cost + ' ◈</span></span><strong>' + power.name + '</strong><small>' + power.desc + '</small></button>';
+  }).join("");
+  return (pendingPower ? '<div class="target-hint">' + powerHint() + '<br><button class="text-button" style="margin-top:6px;color:var(--lime)" data-action="cancel-power">CANCEL TARGETING ×</button></div>' : '') + '<div class="ability-grid">' + cards + '</div>';
+}
+function powerHint() {
+  if (!pendingPower) return "";
+  const hints = {
+    rocket: "SELECT AN ENEMY PIECE WITHIN 2 SQUARES OF ONE OF YOUR PIECES.",
+    teleport: pendingPower.from ? "SELECT AN EMPTY OR ENEMY-OCCUPIED DESTINATION." : "SELECT ONE OF YOUR NON-KING PIECES.",
+    freeze: "SELECT AN ENEMY NON-KING PIECE TO FREEZE.",
+    shield: "SELECT ONE OF YOUR NON-KING PIECES TO PROTECT.",
+    sniper: "SELECT AN ENEMY PIECE ON A CLEAR ROOK / BISHOP / QUEEN LINE.",
+    swap: pendingPower.from ? "SELECT A SECOND FRIENDLY NON-KING PIECE." : "SELECT THE FIRST FRIENDLY NON-KING PIECE."
+  };
+  return hints[pendingPower.id] || "SELECT A TARGET ON THE BOARD.";
+}
+function renderMatch() {
+  const modeName = matchMode === "chaos" ? "CHAOS CHESS" : matchMode === "classic" ? "CLASSIC RULESET" : "TRAINING PUZZLE";
+  const label = puzzleActive ? "TACTICAL PUZZLE / MATE IN ONE" : modeName + " / " + (opponent === "local" ? "LOCAL DUEL" : "VS BOT");
+  const turn = chess.turn();
+  const turnText = gameOver ? "MATCH COMPLETE" : botThinking ? "BOT IS THINKING" : (opponent === "local" && turn === "b" ? "PLAYER 2'S TURN" : turn === "w" ? "YOUR TURN" : "BOT'S TURN");
+  const blackTag = opponent === "local" ? "LOCAL PLAYER" : "TACTICAL AI";
+  const whiteTag = "LEVEL " + levelInfo().level + " / " + currentRank().name;
+  const logTitle = actionLog.length ? actionLog.length + " EVENTS" : "AWAITING FIRST MOVE";
+  return '<div class="match-topline"><div class="match-title"><div><div class="eyebrow">' + label + '</div><h1>' + (puzzleActive ? "ONE MOVE TO FINISH." : "MAKE YOUR MOVE.") + '</h1><p>' + (matchMode === "chaos" ? "THE BOARD IS THE SAME. THE RULES ARE NOT." : "EVERY SQUARE MATTERS. EVERY MOVE IS LEGAL.") + '</p></div></div><div class="match-controls"><button class="btn btn-secondary btn-small" data-action="flip-board">FLIP BOARD ↻</button><button class="btn btn-secondary btn-small" data-action="new-match">NEW MATCH</button><button class="btn btn-danger btn-small" data-action="resign" ' + (gameOver ? "disabled" : "") + '>RESIGN</button></div></div>' +
+    '<div class="match-layout"><section class="board-panel">' +
+      '<div class="player-strip"><div class="player-identity"><span class="player-avatar enemy">♟</span><span class="player-text"><strong>' + escapeHTML(playerName("b")) + '</strong><small>' + blackTag + ' / BLACK</small></span></div><div class="player-meter">' + energyPips("b") + '</div></div>' +
+      renderBoard() +
+      '<div class="board-footer"><span class="turn-indicator">' + turnText + '</span><span>' + (matchMode === "chaos" ? "ENERGY REGENERATES ON MOVES" : "STANDARD CHESS") + '</span></div>' +
+      '<div class="player-strip" style="margin:14px 0 0"><div class="player-identity"><span class="player-avatar">♙</span><span class="player-text"><strong>' + escapeHTML(playerName("w")) + '</strong><small>' + whiteTag + ' / WHITE</small></span></div><div class="player-meter">' + energyPips("w") + '</div></div>' +
+    '</section><aside class="match-side">' +
+      '<section class="match-panel"><div class="panel-heading" style="margin-bottom:7px"><h3>ARSENAL</h3><small>' + (matchMode === "chaos" ? "YOUR ENERGY " + energy[turn] + " / 6" : "DISABLED") + '</small></div><p class="sub">' + (matchMode === "chaos" ? "Choose a power, then select a target on the board. Powers spend your turn." : "Play by the book. Every move must be legal.") + '</p>' + renderPowerDeck() + '</section>' +
+      '<section class="match-panel"><div class="panel-heading"><h3>COMBAT LOG</h3><small>' + logTitle + '</small></div><div class="log-list">' + renderLog() + '</div></section>' +
+      '<section class="match-panel"><div class="panel-heading"><h3>FIELD NOTES</h3><small>RULES</small></div><p class="mode-note">' + (matchMode === "chaos" ? "Abilities cost energy and end your turn. Your king still has to survive. A rocket or sniper shot can finish the match by taking the enemy king." : "Standard chess is active: legal moves, check, checkmate, stalemate, castling, promotion, and en passant.") + '</p></section>' +
+    '</aside></div>';
+}
+
+function render() {
+  const view = $("#view");
+  if (!view) return;
+  syncChrome();
+  if (currentView === "home") view.innerHTML = renderHome();
+  else if (currentView === "play") view.innerHTML = renderPlay();
+  else if (currentView === "practice") view.innerHTML = renderPractice();
+  else if (currentView === "armory") view.innerHTML = renderArmory();
+  else if (currentView === "quests") view.innerHTML = renderQuests();
+  else if (currentView === "rank") view.innerHTML = renderRank();
+  else if (currentView === "profile") view.innerHTML = renderProfile();
+  else if (currentView === "match") view.innerHTML = chess ? renderMatch() : renderPlay();
+  else view.innerHTML = renderHome();
+  view.focus({ preventScroll: true });
+}
+
+function isHumanTurn() {
+  if (!chess || gameOver || botThinking) return false;
+  return opponent === "local" || chess.turn() === "w";
+}
+function startGame(mode = "chaos", who = "bot", level = "steady", isPuzzle = false) {
+  matchMode = mode === "local" ? selectedLocalMode : mode;
+  opponent = mode === "local" ? "local" : who;
+  difficulty = level;
+  puzzleActive = isPuzzle;
+  puzzleSolved = false;
+  chess = new Chess(isPuzzle ? PUZZLE_FEN : undefined);
+  gameOver = false;
+  botThinking = false;
+  selectedSquare = null;
+  pendingPower = null;
+  energy = { w: 5, b: 5 };
+  frozen = { w: {}, b: {} };
+  shielded = { w: {}, b: {} };
+  doubleMoves = 0;
+  boardFlipped = false;
+  actionLog = [];
+  gameCaptures = 0;
+  lastResult = null;
+  resultModalVisible = false;
+  activeSkin = profile.equippedSkin || "standard";
+  recordLog("SYSTEM", isPuzzle ? "Puzzle loaded: mate in one." : matchMode === "chaos" ? "Chaos rules armed. Powers are online." : "Standard chess rules loaded.");
+  currentView = "match";
+  $("#modal-root").innerHTML = "";
+  render();
+  toast(isPuzzle ? "Find the forced checkmate in one." : "The board is live. Make it count.");
+}
+let selectedLocalMode = "chaos";
+function recordLog(who, text) {
+  actionLog.push({ who: who.toUpperCase(), text: String(text) });
+  if (actionLog.length > 30) actionLog = actionLog.slice(-30);
+}
+function fileOf(square) { return square.charCodeAt(0) - 97; }
+function rankOf(square) { return Number(square[1]) - 1; }
+function squareDistance(a, b) {
+  return Math.max(Math.abs(fileOf(a) - fileOf(b)), Math.abs(rankOf(a) - rankOf(b)));
+}
+function friendlyPieceExistsOnLine(fromPiece, from, to) {
+  const dx = Math.sign(fileOf(to) - fileOf(from));
+  const dy = Math.sign(rankOf(to) - rankOf(from));
+  const fileDiff = Math.abs(fileOf(to) - fileOf(from));
+  const rankDiff = Math.abs(rankOf(to) - rankOf(from));
+  const straight = fileDiff === 0 || rankDiff === 0;
+  const diagonal = fileDiff === rankDiff;
+  if (!straight && !diagonal) return false;
+  if (straight && !["r", "q"].includes(fromPiece.type)) return false;
+  if (diagonal && !["b", "q"].includes(fromPiece.type)) return false;
+  let file = fileOf(from) + dx;
+  let rank = rankOf(from) + dy;
+  while (file !== fileOf(to) || rank !== rankOf(to)) {
+    const square = String.fromCharCode(97 + file) + (rank + 1);
+    if (chess.get(square)) return false;
+    file += dx;
+    rank += dy;
+  }
+  return true;
+}
+function sniperCanReach(target, color) {
+  const enemy = chess.get(target);
+  if (!enemy || enemy.color === color) return false;
+  const board = chess.board();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const piece = board[r][c];
+    if (!piece || piece.color !== color || !["r", "b", "q"].includes(piece.type)) continue;
+    const from = String.fromCharCode(97 + c) + (8 - r);
+    if (friendlyPieceExistsOnLine(piece, from, target)) return true;
+  }
+  return false;
+}
+function rocketCanReach(target, color) {
+  const board = chess.board();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const piece = board[r][c];
+    if (!piece || piece.color !== color) continue;
+    const from = String.fromCharCode(97 + c) + (8 - r);
+    if (squareDistance(from, target) <= 2) return true;
+  }
+  return false;
+}
+function forceTurn(color) {
+  const fields = chess.fen().split(" ");
+  fields[1] = color;
+  fields[2] = "-";
+  fields[3] = "-";
+  fields[4] = "0";
+  try {
+    chess = new Chess(fields.join(" "));
+    return true;
+  } catch (error) {
+    toast("That action created an invalid board position.", "error");
+    return false;
+  }
+}
+function clearFrozen(color) { frozen[color] = {}; }
+function checkGameEnd() {
+  if (!chess || gameOver) return true;
+  if (chess.isCheckmate()) {
+    finishGame(opposite(chess.turn()), "CHECKMATE");
+    return true;
+  }
+  if (chess.isDraw()) {
+    finishGame("draw", chess.isStalemate() ? "STALEMATE" : "DRAW");
+    return true;
+  }
+  return false;
+}
+function doNormalMove(from, to) {
+  if (!isHumanTurn()) return;
+  const color = chess.turn();
+  const destinationPiece = chess.get(to);
+  if (destinationPiece && shielded[destinationPiece.color][to]) {
+    delete shielded[destinationPiece.color][to];
+    selectedSquare = null;
+    toast("Shield absorbed the capture. That piece survives.", "error");
+    recordLog("SHIELD", to.toUpperCase() + " absorbed an attack.");
+    render();
+    return;
+  }
+  let result;
+  try { result = chess.move({ from: from, to: to, promotion: "q" }); } catch (error) { result = null; }
+  if (!result) return;
+  const captured = Boolean(result.captured);
+  if (captured) {
+    gameCaptures++;
+    energy[color] = clamp(energy[color] + 2, 0, 6);
+    if (opponent === "local" || color === "w") {
+      profile.captures++;
+      profile.daily.captures++;
+      saveProfile();
+    }
+  } else {
+    energy[color] = clamp(energy[color] + 1, 0, 6);
+  }
+  clearFrozen(color);
+  selectedSquare = null;
+  pendingPower = null;
+  recordLog(color === "w" ? "WHITE" : "BLACK", result.san + (captured ? " / CAPTURE" : ""));
+  if (puzzleActive) {
+    if (chess.isCheckmate()) {
+      finishGame("w", "PUZZLE SOLVED");
+    } else {
+      toast("Not quite. The puzzle resets — look for the forcing move.", "error");
+      window.setTimeout(() => {
+        if (puzzleActive && !gameOver) {
+          chess = new Chess(PUZZLE_FEN);
+          selectedSquare = null;
+          actionLog = [{ who: "SYSTEM", text: "Puzzle reset. Find mate in one." }];
+          render();
+        }
+      }, 700);
+    }
+    render();
+    return;
+  }
+  if (doubleMoves > 0 && color === "w") {
+    doubleMoves--;
+    if (!chess.isCheck() && forceTurn("w")) {
+      recordLog("HASTE", "Second move granted.");
+      toast("DOUBLE TIME — YOU HAVE ONE MORE MOVE.");
+      render();
+      return;
+    }
+    doubleMoves = 0;
+    toast("Your extra move was cancelled because the opponent is in check.", "error");
+  }
+  render();
+  if (checkGameEnd()) return;
+  if (opponent === "bot" && chess.turn() === "b") maybeBotTurn();
+}
+function handleSquareClick(square) {
+  if (!chess || gameOver || botThinking) return;
+  if (!isHumanTurn()) return;
+  if (pendingPower) {
+    handlePowerTarget(square);
+    return;
+  }
+  const color = chess.turn();
+  const piece = chess.get(square);
+  if (selectedSquare) {
+    const moves = currentLegalMoves(selectedSquare);
+    const move = moves.find(item => item.to === square);
+    if (move) {
+      doNormalMove(selectedSquare, square);
+      return;
+    }
+    if (piece && piece.color === color && !frozen[color][square]) {
+      selectedSquare = square;
+      render();
+      return;
+    }
+    selectedSquare = null;
+    render();
+    return;
+  }
+  if (piece && piece.color === color && !frozen[color][square]) {
+    selectedSquare = square;
+    render();
+  }
+}
+
+function activatePower(id) {
+  if (!chess || gameOver || !isHumanTurn()) return;
+  if (matchMode !== "chaos") { toast("Powers are disabled in Classic mode.", "error"); return; }
+  if (chess.isCheck()) { toast("Your king is in check. Defend it before using a power.", "error"); return; }
+  const power = POWERS.find(item => item.id === id);
+  if (!power) return;
+  if (energy[chess.turn()] < power.cost) { toast("Not enough energy for " + power.name + ".", "error"); return; }
+  if (id === "haste") {
+    if (doubleMoves) { toast("Double Time is already active.", "error"); return; }
+    energy[chess.turn()] -= power.cost;
+    doubleMoves = 2;
+    selectedSquare = null;
+    pendingPower = null;
+    recordLog("POWER", "DOUBLE TIME activated. Two moves queued.");
+    toast("Double Time active. Your next two moves are yours.");
+    render();
+    return;
+  }
+  pendingPower = { id: id, from: null };
+  selectedSquare = null;
+  render();
+  toast(power.name + " armed. Select a target on the board.");
+}
+function consumePower(color, id) {
+  const power = POWERS.find(item => item.id === id);
+  energy[color] = clamp(energy[color] - power.cost, 0, 6);
+  selectedSquare = null;
+  pendingPower = null;
+}
+function advancePowerTurn(color, message) {
+  if (chess.isCheck()) {
+    toast("Your king would be exposed. The power is cancelled.", "error");
+    return false;
+  }
+  if (!forceTurn(opposite(color))) return false;
+  clearFrozen(color);
+  recordLog("POWER", message);
+  if (!checkGameEnd()) {
+    render();
+    if (opponent === "bot" && chess.turn() === "b") maybeBotTurn();
+  }
+  return true;
+}
+function handlePowerTarget(square) {
+  const power = pendingPower;
+  if (!power) return;
+  const id = power.id;
+  const color = chess.turn();
+  const enemy = opposite(color);
+  const piece = chess.get(square);
+  if (id === "rocket") {
+    if (!piece || piece.color !== enemy) { toast("Choose an enemy piece.", "error"); return; }
+    if (!rocketCanReach(square, color)) { toast("That target is out of rocket range.", "error"); return; }
+    if (piece.type === "k") {
+      consumePower(color, id);
+      recordLog("POWER", "ROCKET captured the king.");
+      finishGame(color, "KING CAPTURED BY ROCKET");
+      return;
+    }
+    if (shielded[enemy][square]) {
+      delete shielded[enemy][square];
+      consumePower(color, id);
+      advancePowerTurn(color, "Rocket hit a shield at " + square + ".");
+      toast("The shield absorbed your rocket.");
+      return;
+    }
+    const before = chess.fen();
+    chess.remove(square);
+    if (chess.isCheck()) {
+      chess = new Chess(before);
+      toast("That blast would expose your king.", "error");
+      return;
+    }
+    consumePower(color, id);
+    advancePowerTurn(color, "Rocket blasted " + square + " off the board.");
+    toast("Target eliminated.");
+    return;
+  }
+  if (id === "sniper") {
+    if (!piece || piece.color !== enemy) { toast("Select an enemy piece.", "error"); return; }
+    if (!sniperCanReach(square, color)) { toast("No friendly rook, bishop, or queen has a clear line to that square.", "error"); return; }
+    if (piece.type === "k") {
+      consumePower(color, id);
+      recordLog("POWER", "SNIPER captured the king.");
+      finishGame(color, "KING TAKEN BY SNIPER");
+      return;
+    }
+    if (shielded[enemy][square]) {
+      delete shielded[enemy][square];
+      consumePower(color, id);
+      advancePowerTurn(color, "Sniper round deflected by a shield at " + square + ".");
+      toast("Shield hit. Target survives.");
+      return;
+    }
+    const before = chess.fen();
+    chess.remove(square);
+    if (chess.isCheck()) { chess = new Chess(before); toast("That shot would expose your king.", "error"); return; }
+    consumePower(color, id);
+    advancePowerTurn(color, "Sniper removed the piece at " + square + ".");
+    toast("Clean shot.");
+    return;
+  }
+  if (id === "freeze") {
+    if (!piece || piece.color !== enemy || piece.type === "k") { toast("Choose an enemy non-king piece.", "error"); return; }
+    frozen[enemy][square] = true;
+    consumePower(color, id);
+    advancePowerTurn(color, "Froze the enemy piece at " + square + ".");
+    toast("Frozen. It cannot move during the opponent's next turn.");
+    return;
+  }
+  if (id === "shield") {
+    if (!piece || piece.color !== color || piece.type === "k") { toast("Choose one of your non-king pieces.", "error"); return; }
+    shielded[color][square] = true;
+    consumePower(color, id);
+    advancePowerTurn(color, "Shielded your piece at " + square + ".");
+    toast("Shield online. The next capture is blocked.");
+    return;
+  }
+  if (id === "teleport") {
+    if (!power.from) {
+      if (!piece || piece.color !== color || piece.type === "k") { toast("Choose one of your non-king pieces.", "error"); return; }
+      power.from = square;
+      render();
+      toast("Now choose its destination.");
+      return;
+    }
+    const from = power.from;
+    if (square === from || (piece && piece.color === color)) { toast("Choose an empty square or an enemy target.", "error"); return; }
+    if (piece && piece.type === "k" && piece.color === enemy) {
+      consumePower(color, id);
+      finishGame(color, "ENEMY KING TELEPORTED OFF THE BOARD");
+      return;
+    }
+    if (piece && shielded[enemy][square]) {
+      delete shielded[enemy][square];
+      consumePower(color, id);
+      advancePowerTurn(color, "Teleport was blocked by a shield at " + square + ".");
+      toast("The shield repelled your teleport.");
+      return;
+    }
+    const before = chess.fen();
+    const moving = chess.remove(from);
+    if (piece) chess.remove(square);
+    if (moving) chess.put(moving, square);
+    if (chess.isCheck()) {
+      chess = new Chess(before);
+      toast("That warp would leave your king exposed.", "error");
+      return;
+    }
+    consumePower(color, id);
+    advancePowerTurn(color, "Blink moved " + from + " to " + square + ".");
+    toast("Piece blinked across the board.");
+    return;
+  }
+  if (id === "swap") {
+    if (!power.from) {
+      if (!piece || piece.color !== color || piece.type === "k") { toast("Choose one of your non-king pieces.", "error"); return; }
+      power.from = square;
+      render();
+      toast("Choose a second friendly piece to swap.");
+      return;
+    }
+    const from = power.from;
+    if (!piece || piece.color !== color || piece.type === "k" || square === from) { toast("Choose a different friendly non-king piece.", "error"); return; }
+    const before = chess.fen();
+    const first = chess.remove(from);
+    const second = chess.remove(square);
+    if (first && second) {
+      chess.put(first, square);
+      chess.put(second, from);
+    }
+    if (chess.isCheck()) {
+      chess = new Chess(before);
+      toast("That swap would expose your king.", "error");
+      return;
+    }
+    consumePower(color, id);
+    advancePowerTurn(color, "Swapped " + from + " with " + square + ".");
+    toast("Positions swapped.");
+  }
+}
+
+function maybeBotTurn() {
+  if (opponent !== "bot" || !chess || gameOver || chess.turn() !== "b" || puzzleActive) return;
+  botThinking = true;
+  render();
+  window.setTimeout(() => {
+    if (gameOver || !chess || chess.turn() !== "b") { botThinking = false; render(); return; }
+    let moves = getAllowedMoves(chess);
+    if (!moves.length && Object.keys(frozen.b).length) {
+      clearFrozen("b");
+      moves = getAllowedMoves(chess);
+      recordLog("SYSTEM", "Freeze expired. Bot turn restored.");
+    }
+    if (!moves.length) {
+      botThinking = false;
+      checkGameEnd();
+      render();
+      return;
+    }
+    const chosen = chooseBotMove(chess, difficulty, moves);
+    if (!chosen) { botThinking = false; return; }
+    const before = chess.get(chosen.to);
+    if (before && shielded.w[chosen.to]) {
+      delete shielded.w[chosen.to];
+      recordLog("SHIELD", "White shield absorbed " + chosen.to + ".");
+      const alternatives = moves.filter(move => move.to !== chosen.to);
+      const backup = alternatives.length ? chooseBotMove(chess, "easy", alternatives) : null;
+      if (!backup) {
+        botThinking = false;
+        render();
+        return;
+      }
+      applyBotMove(backup);
+    } else {
+      applyBotMove(chosen);
+    }
+  }, 520);
+}
+function getAllowedMoves(position) {
+  return position.moves({ verbose: true }).filter(move => {
+    const color = position.turn();
+    return !frozen[color][move.from] && !shielded[opposite(color)][move.to];
+  });
+}
+function evaluatePosition(position, rootColor) {
+  if (position.isCheckmate()) return position.turn() === rootColor ? -100000 : 100000;
+  if (position.isDraw()) return 0;
+  let score = 0;
+  const board = position.board();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const piece = board[r][c];
+    if (!piece) continue;
+    const value = VALUES[piece.type] || 0;
+    const center = 3.5 - (Math.abs(3.5 - r) + Math.abs(3.5 - c)) / 2;
+    const positional = piece.type === "p" ? center * 3 : (piece.type === "n" || piece.type === "b") ? center * 5 : 0;
+    const sign = piece.color === rootColor ? 1 : -1;
+    score += sign * (value + positional);
+  }
+  if (position.isCheck()) score += position.turn() === rootColor ? -35 : 35;
+  return score;
+}
+function minimax(position, depth, alpha, beta, rootColor) {
+  if (depth <= 0 || position.isGameOver()) return evaluatePosition(position, rootColor);
+  const moves = getAllowedMoves(position);
+  if (!moves.length) return evaluatePosition(position, rootColor);
+  const maximizing = position.turn() === rootColor;
+  let best = maximizing ? -Infinity : Infinity;
+  for (const move of moves) {
+    const next = new Chess(position.fen());
+    next.move({ from: move.from, to: move.to, promotion: move.promotion || "q" });
+    const score = minimax(next, depth - 1, alpha, beta, rootColor);
+    if (maximizing) {
+      best = Math.max(best, score);
+      alpha = Math.max(alpha, best);
+    } else {
+      best = Math.min(best, score);
+      beta = Math.min(beta, best);
+    }
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+function chooseBotMove(position, level, moveList = null) {
+  const moves = moveList || getAllowedMoves(position);
+  if (!moves.length) return null;
+  if (level === "easy") {
+    const scored = moves.map(move => ({ move, score: (move.captured ? VALUES[move.captured] || 0 : 0) + Math.random() * 180 }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0].move;
+  }
+  const depth = level === "hard" ? 3 : 2;
+  let bestMove = null;
+  let bestScore = -Infinity;
+  const shuffled = moves.slice().sort(() => Math.random() - .5);
+  for (const move of shuffled) {
+    const next = new Chess(position.fen());
+    next.move({ from: move.from, to: move.to, promotion: move.promotion || "q" });
+    const score = minimax(next, depth - 1, -Infinity, Infinity, "b") + Math.random() * 1.5;
+    if (score > bestScore) { bestScore = score; bestMove = move; }
+  }
+  return bestMove;
+}
+function applyBotMove(move) {
+  const before = chess.get(move.to);
+  let result;
+  try { result = chess.move({ from: move.from, to: move.to, promotion: "q" }); } catch (error) { result = null; }
+  if (result) {
+    if (result.captured) energy.b = clamp(energy.b + 2, 0, 6);
+    else energy.b = clamp(energy.b + 1, 0, 6);
+    clearFrozen("b");
+    recordLog("BOT", result.san + (result.captured ? " / CAPTURE" : ""));
+  }
+  botThinking = false;
+  render();
+  if (!checkGameEnd() && chess.turn() === "w") toast("Your move.");
+}
+
+function finishGame(winner, reason) {
+  if (gameOver) return;
+  gameOver = true;
+  botThinking = false;
+  pendingPower = null;
+  selectedSquare = null;
+  let xpReward = 0;
+  let shardReward = 0;
+  let ratingChange = 0;
+  if (!puzzleActive && opponent === "bot") {
+    profile.matches++;
+    profile.daily.matches++;
+    if (winner === "w") {
+      profile.wins++;
+      profile.streak++;
+      profile.bestStreak = Math.max(profile.bestStreak, profile.streak);
+      profile.daily.wins++;
+      xpReward = matchMode === "chaos" ? 140 : 120;
+      shardReward = matchMode === "chaos" ? 125 : 100;
+      ratingChange = difficulty === "hard" ? 24 : difficulty === "steady" ? 18 : 12;
+      profile.rating += ratingChange;
+    } else if (winner === "b") {
+      profile.losses++;
+      profile.streak = 0;
+      xpReward = 45;
+      shardReward = 35;
+      ratingChange = -Math.min(14, Math.max(0, profile.rating - 800));
+      profile.rating += ratingChange;
+    } else {
+      profile.draws++;
+      profile.streak = 0;
+      xpReward = 65;
+      shardReward = 55;
+    }
+    profile.xp += xpReward;
+    profile.credits += shardReward;
+    saveProfile();
+  }
+  lastResult = { winner: winner, reason: reason, xp: xpReward, shards: shardReward, rating: ratingChange };
+  render();
+  showResultModal(lastResult);
+}
+function showResultModal(result) {
+  const win = result.winner === "w";
+  const draw = result.winner === "draw";
+  const title = puzzleActive ? (win ? "PUZZLE SOLVED." : "PUZZLE FAILED.") : draw ? "NO WINNER." : win ? "BOARD DOMINATED." : "OUTPLAYED.";
+  const subtitle = puzzleActive ? "You found the forced mate in one." : result.reason + " / " + (win ? "You took the match." : draw ? "The game ended level." : "The bot takes this round. Run it back.");
+  const icon = puzzleActive ? (win ? "✦" : "↻") : draw ? "＝" : win ? "♛" : "♟";
+  $("#modal-root").innerHTML = '<div class="modal-backdrop"><section class="modal-card match-result"><div class="result-symbol">' + icon + '</div><div class="eyebrow" style="justify-content:center">' + (puzzleActive ? "TRAINING LAB" : "MATCH COMPLETE") + '</div><h2>' + title + '</h2><p>' + subtitle + '</p>' +
+    (!puzzleActive && opponent === "bot" ? '<div class="result-rewards"><span>+' + result.xp + ' XP</span><span>+' + result.shards + ' SHARDS</span><span>' + (result.rating > 0 ? "+" : "") + result.rating + ' ELO</span></div>' : "") +
+    '<div class="modal-actions"><button class="btn btn-secondary" data-action="back-lobby">BACK TO LOBBY</button><button class="btn btn-primary" data-action="' + (puzzleActive ? "retry-puzzle" : "rematch") + '">' + (puzzleActive ? "TRY AGAIN" : "REMATCH") + ' ↗</button></div></section></div>';
+}
+function updateDailyClaim(questId) {
+  const quest = DAILY_QUESTS.find(item => item.id === questId);
+  if (!quest) return;
+  if (profile.daily.claimed.includes(questId)) { toast("That contract has already been claimed.", "error"); return; }
+  if ((profile.daily[quest.key] || 0) < quest.goal) { toast("Finish the contract first.", "error"); return; }
+  profile.daily.claimed.push(questId);
+  profile.credits += quest.reward;
+  profile.xp += 45;
+  saveProfile();
+  render();
+  toast("Contract claimed. +" + quest.reward + " shards and 45 XP.");
+}
+function buySkin(id) {
+  const skin = SKINS.find(item => item.id === id);
+  if (!skin) return;
+  if (profile.unlockedSkins.includes(id)) { toast("You already own this skin."); return; }
+  if (profile.credits < skin.price) { toast("Not enough shards. Play more matches or claim a contract.", "error"); return; }
+  profile.credits -= skin.price;
+  profile.unlockedSkins.push(id);
+  saveProfile();
+  render();
+  toast(skin.name + " unlocked.");
+}
+function equipSkin(id) {
+  if (!profile.unlockedSkins.includes(id)) return;
+  profile.equippedSkin = id;
+  activeSkin = id;
+  saveProfile();
+  render();
+  toast("Arena skin equipped.");
+}
+function resetProfile() {
+  $("#modal-root").innerHTML = '<div class="modal-backdrop"><section class="modal-card"><div class="eyebrow">LOCAL DATA / CONFIRMATION</div><h2>WIPE YOUR FILE?</h2><p>This resets your local rating, matches, shards, quests, and cosmetics. This cannot be undone.</p><div class="modal-actions"><button class="btn btn-secondary" data-action="close-modal">CANCEL</button><button class="btn btn-danger" data-action="confirm-reset">RESET PROFILE</button></div></section></div>';
+}
+function setView(view) {
+  currentView = view;
+  $("#sidebar").classList.remove("open");
+  render();
+}
+function startFromSetup() {
+  const opponentSelect = $("#opponent-select");
+  const difficultySelect = $("#difficulty-select");
+  selectedOpponent = opponentSelect ? opponentSelect.value : selectedOpponent;
+  selectedDifficulty = difficultySelect ? difficultySelect.value : selectedDifficulty;
+  if (selectedMode === "local") {
+    selectedLocalMode = "chaos";
+    startGame("local", "local", selectedDifficulty, false);
+  } else {
+    startGame(selectedMode, selectedOpponent, selectedDifficulty, false);
+  }
+}
+function handleAction(action, element) {
+  if (action === "go-play") setView("play");
+  else if (action === "quick-chaos") { selectedMode = "chaos"; setView("play"); startGame("chaos", "bot", selectedDifficulty, false); }
+  else if (action === "quick-classic") { selectedMode = "classic"; setView("play"); startGame("classic", "bot", selectedDifficulty, false); }
+  else if (action === "start-match") startFromSetup();
+  else if (action === "start-puzzle") startGame("classic", "puzzle", "steady", true);
+  else if (action === "start-lab") startGame("chaos", "bot", "easy", false);
+  else if (action === "flip-board") { boardFlipped = !boardFlipped; render(); }
+  else if (action === "new-match") { $("#modal-root").innerHTML = '<div class="modal-backdrop"><section class="modal-card"><div class="eyebrow">MATCH CONTROL</div><h2>START OVER?</h2><p>Your current match will be abandoned. This does not affect your saved match record.</p><div class="modal-actions"><button class="btn btn-secondary" data-action="close-modal">KEEP PLAYING</button><button class="btn btn-primary" data-action="confirm-new">NEW MATCH</button></div></section></div>'; }
+  else if (action === "confirm-new") { $("#modal-root").innerHTML = ""; startGame(matchMode, opponent, difficulty, puzzleActive); }
+  else if (action === "resign") { if (opponent === "bot" && !puzzleActive) finishGame("b", "RESIGNATION"); else finishGame("b", "RESIGNATION"); }
+  else if (action === "cancel-power") { pendingPower = null; render(); }
+  else if (action === "rematch") { $("#modal-root").innerHTML = ""; startGame(matchMode, opponent, difficulty, false); }
+  else if (action === "retry-puzzle") { $("#modal-root").innerHTML = ""; startGame("classic", "puzzle", "steady", true); }
+  else if (action === "back-lobby") { $("#modal-root").innerHTML = ""; puzzleActive = false; setView("play"); }
+  else if (action === "claim-quest") updateDailyClaim(element.dataset.quest);
+  else if (action === "buy-skin") buySkin(element.dataset.skin);
+  else if (action === "equip-skin") equipSkin(element.dataset.skin);
+  else if (action === "save-name") {
+    const input = $("#profile-name-input");
+    const name = (input.value || "").trim().replace(/\s+/g, " ").slice(0, 16);
+    if (!name) { toast("Choose a callsign first.", "error"); return; }
+    profile.name = name.toUpperCase();
+    saveProfile();
+    render();
+    toast("Callsign updated.");
+  }
+  else if (action === "reset-profile") resetProfile();
+  else if (action === "close-modal") $("#modal-root").innerHTML = "";
+  else if (action === "confirm-reset") { profile = makeProfile(); saveProfile(); $("#modal-root").innerHTML = ""; setView("profile"); toast("Local profile reset."); }
+}
+document.addEventListener("click", event => {
+  const nav = event.target.closest("[data-view]");
+  if (nav) {
+    event.preventDefault();
+    setView(nav.dataset.view);
+    return;
+  }
+  const square = event.target.closest("[data-square]");
+  if (square) { handleSquareClick(square.dataset.square); return; }
+  const power = event.target.closest("[data-power]");
+  if (power) { activatePower(power.dataset.power); return; }
+  const mode = event.target.closest("[data-mode]");
+  if (mode) {
+    selectedMode = mode.dataset.mode;
+    render();
+    return;
+  }
+  const action = event.target.closest("[data-action]");
+  if (action) { handleAction(action.dataset.action, action); return; }
+});
+$("#mobile-menu").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    if (pendingPower) { pendingPower = null; render(); }
+    $("#sidebar").classList.remove("open");
+    if ($("#modal-root").innerHTML) $("#modal-root").innerHTML = "";
+  }
+});
+window.addEventListener("storage", event => {
+  if (event.key === PROFILE_KEY && event.newValue) {
+    profile = loadProfile();
+    render();
+  }
+});
+if (!profile.daily || profile.daily.date !== todayKey()) {
+  profile.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
+  saveProfile();
+}
+render();
