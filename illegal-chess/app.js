@@ -105,6 +105,7 @@ let lastResult = null;
 let activeSkin = profile.equippedSkin || "standard";
 let resultModalVisible = false;
 let activePowers = { w: null, b: null };
+let powerLocked = { w: false, b: false };
 let draftChoices = [];
 let draftSelection = null;
 let draftContext = null;
@@ -372,6 +373,16 @@ function powerHint() {
     freeze: "SELECT AN ENEMY NON-KING PIECE TO FREEZE.",
     shield: "SELECT ONE OF YOUR NON-KING PIECES TO PROTECT.",
     sniper: "SELECT AN ENEMY PIECE ON A CLEAR ROOK / BISHOP / QUEEN LINE.",
+    clone: pendingPower.from ? "SELECT AN EMPTY DESTINATION FOR THE COPY." : "SELECT ONE OF YOUR NON-KING PIECES TO COPY.",
+    convert: "SELECT AN ENEMY PAWN TO TURN TO YOUR SIDE.",
+    push: "SELECT AN ENEMY NON-KING PIECE TO KNOCK BACK.",
+    pull: "SELECT AN ENEMY NON-KING PIECE TO DRAG TOWARD YOU.",
+    summon: "SELECT AN EMPTY SQUARE ON YOUR ORIGINAL PAWN RANK.",
+    promote: "SELECT ONE OF YOUR PAWNS TO ASCEND INTO A QUEEN.",
+    fortify: "SELECT A FRIENDLY NON-KING PIECE TO FORTIFY.",
+    exchange: pendingPower.from ? "SELECT AN ENEMY NON-KING PIECE TO TRADE." : "SELECT ONE OF YOUR NON-KING PIECES.",
+    silence: "SELECT AN ENEMY NON-KING PIECE TO SEAL THEIR POWER.",
+    prison: "SELECT A RANK TO IMPRISON ITS ENEMY PIECES.",
     swap: pendingPower.from ? "SELECT A SECOND FRIENDLY NON-KING PIECE." : "SELECT THE FIRST FRIENDLY NON-KING PIECE."
   };
   return hints[pendingPower.id] || "SELECT A TARGET ON THE BOARD.";
@@ -455,6 +466,7 @@ function startGame(mode = "chaos", who = "bot", level = "steady", isPuzzle = fal
   activeSkin = profile.equippedSkin || "standard";
   const firstPower = chosenPower || (matchMode === "chaos" ? rollPowerChoices(1)[0] : null);
   activePowers = matchMode === "chaos" ? (powerLoadout || { w: firstPower, b: opponent === "online" ? null : rollPowerChoices(1)[0] }) : { w: null, b: null };
+  powerLocked = { w: false, b: false };
   recordLog("SYSTEM", isPuzzle ? "Puzzle loaded: mate in one." : matchMode === "chaos" ? "Chaos rules armed. One rolled power per player." : "Standard chess rules loaded.");
   if (opponent === "online") net.phase = "match";
   currentView = "match";
@@ -578,6 +590,7 @@ function doNormalMove(from, to) {
   selectedSquare = null;
   pendingPower = null;
   recordLog(color === "w" ? "WHITE" : "BLACK", result.san + (captured ? " / CAPTURE" : ""));
+  powerLocked[color] = false;
   if (puzzleActive) {
     if (chess.isCheckmate()) {
       finishGame("w", "PUZZLE SOLVED");
@@ -649,7 +662,38 @@ function activatePower(id) {
   if (chess.isCheck()) { toast("Your king is in check. Defend it before using a power.", "error"); return; }
   const power = activePowers[chess.turn()];
   if (!power || power.effectId !== id) { toast("Only your one locked-in power can be used.", "error"); return; }
+  if (powerLocked[chess.turn()]) { toast("Your power is sealed for this turn.", "error"); return; }
   if (energy[chess.turn()] < power.cost) { toast("Not enough energy for " + power.name + ".", "error"); return; }
+  if (id === "surge") {
+    const color = chess.turn();
+    energy[color] = clamp(energy[color] + 3, 0, 6);
+    consumePower(color, id);
+    advancePowerTurn(color, power.name + " restored energy.");
+    toast("Energy surge. Your reserve is replenished.");
+    return;
+  }
+  if (id === "drain") {
+    const color = chess.turn();
+    const enemy = opposite(color);
+    energy[enemy] = Math.max(0, energy[enemy] - 2);
+    consumePower(color, id);
+    advancePowerTurn(color, power.name + " drained the opponent.");
+    toast("Opponent energy drained.");
+    return;
+  }
+  if (id === "timeStop") {
+    const color = chess.turn();
+    const enemy = opposite(color);
+    const board = chess.board();
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (piece && piece.color === enemy && piece.type !== "k") frozen[enemy][String.fromCharCode(97 + c) + (8 - r)] = true;
+    }
+    consumePower(color, id);
+    advancePowerTurn(color, power.name + " stopped every enemy piece except the king.");
+    toast("Time stopped. The enemy king is still able to move.");
+    return;
+  }
   if (id === "haste") {
     if (opponent === "online" && net.role === "guest" && !handlingRemote) {
       peerRoom?.send({ type: "action", action: "haste", powerId: power.id });
@@ -1367,6 +1411,7 @@ function handlePeerData(message) {
     frozen = message.frozen || { w: {}, b: {} };
     shielded = message.shielded || { w: {}, b: {} };
     doubleMoves = Number(message.doubleMoves || 0);
+    powerLocked = message.powerLocked || { w: false, b: false };
     actionLog = Array.isArray(message.actionLog) ? message.actionLog : actionLog;
     gameCaptures = Number(message.gameCaptures || 0);
     gameOver = false;
@@ -1389,6 +1434,7 @@ function publishNetState() {
     frozen: frozen,
     shielded: shielded,
     doubleMoves: doubleMoves,
+    powerLocked: powerLocked,
     actionLog: actionLog,
     gameCaptures: gameCaptures,
     gameOver: gameOver,
