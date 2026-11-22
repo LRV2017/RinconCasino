@@ -39,7 +39,7 @@ Roulette (European and American), Blackjack, Punto Banco Baccarat, Texas Hold'em
 - `src/extra-games.js` — 16 independent game loops, including Russian Roulette and Demon's Deal
 - `src/poker.js` — Hold'em and Omaha local tables
 - `src/board.js` / `src/chess.js` — strategy games and bots
-- `src/multiplayer.js` — PeerJS WebRTC invite rooms with Tic-Tac-Toe, Connect Four, Reversi and Gomoku
+- `src/multiplayer.js` — shared PeerJS WebRTC invite rooms for ten head-to-head games, with host-side move validation
 - `src/github-cloud.js` — GitHub account connection and save sync through a secret (unlisted) Gist
 - `docs/ONLINE_MULTIPLAYER.md` — P2P room model, setup and trust boundaries
 
@@ -63,7 +63,7 @@ The automated smoke suite syntax-checks the modules, verifies every catalog game
 
 ## Peer-to-peer rooms
 
-Choose **Online rooms** in the lobby to create or join an eight-character invite room. Current online games are Tic-Tac-Toe, Connect Four, Reversi and Gomoku (two players). The host browser validates moves and sends board snapshots over a WebRTC data channel. PeerJS Cloud brokers the initial handshake; normal game data is peer-to-peer, though some restrictive networks may need a TURN relay. The host must keep its browser tab open. This mode is for friendly board matches, not a tamper-proof competitive economy. See [docs/ONLINE_MULTIPLAYER.md](docs/ONLINE_MULTIPLAYER.md).
+Choose **Online rooms** in the lobby, or press **ONLINE** on a supported game card, to create or join an eight-character invite room. The online room list currently supports ten two-player games: Tic-Tac-Toe, Connect Four, Reversi, Gomoku, Chess, Checkers, Battleship, Mancala, Nim, and Dots and Boxes. The host validates each move and broadcasts the resulting state over a WebRTC data channel. Battleship sends player-specific snapshots so the opposing fleet remains hidden. PeerJS Cloud brokers the initial handshake; normal game data is peer-to-peer, though restrictive networks may require a TURN relay. The host must keep its browser tab open. Poker, multiplayer dice tables, Bingo, Russian Roulette, and Demon’s Deal still use their local bot tables and are not yet connected to P2P. This mode is for friendly matches, not a tamper-proof competitive economy. See [docs/ONLINE_MULTIPLAYER.md](docs/ONLINE_MULTIPLAYER.md).
 
 ## GitHub saves
 
