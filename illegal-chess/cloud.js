@@ -82,3 +82,7 @@ export async function cloudWriteSave(userId, saveData) {
   if (error) throw error;
   return data;
 }
+
+export async function cloudUpdatePassword(password) {
+  return requireClient().auth.updateUser({ password });
+}
