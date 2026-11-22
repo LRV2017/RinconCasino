@@ -1,6 +1,6 @@
 import { gameCatalog } from "./catalog.js";
 import { mountGame } from "./engines.js";
-import { mountMultiplayerRooms } from "./multiplayer.js";
+import { mountMultiplayerRooms, isOnlineRoomGame } from "./multiplayer.js";
 import { GitHubCloudSave } from "./github-cloud.js";
 
 const $ = (selector,scope=document) => scope.querySelector(selector);
@@ -86,7 +86,8 @@ function renderCategories(){
 }
 function cardMarkup(game){
   const isFav=favorites.has(game.id);
-  return '<article class="game-card" data-card="'+game.id+'"><div class="game-card-top"><span class="game-category">'+game.category.toUpperCase()+'</span><span class="game-number">#'+String(game.number).padStart(3,"0")+'</span></div><button class="favorite-star '+(isFav?"active":"")+'" data-favorite="'+game.id+'" aria-label="'+(isFav?"Remove from":"Add to")+' favorites">'+(isFav?"★":"☆")+'</button><div class="game-card-art">'+game.icon+'</div><h3>'+game.name+'</h3><p>'+game.description+'</p><div class="game-card-bottom"><small>'+(isBotGame(game)?"VS LOCAL BOTS":game.kind==="table"?"TABLE GAME":"ARCADE")+'</small><button class="play-card" data-play="'+game.id+'">PLAY ↗</button></div></article>';
+  const online=isOnlineRoomGame(game.mode);
+  return '<article class="game-card" data-card="'+game.id+'"><div class="game-card-top"><span class="game-category">'+game.category.toUpperCase()+'</span><span class="game-number">#'+String(game.number).padStart(3,"0")+'</span></div><button class="favorite-star '+(isFav?"active":"")+'" data-favorite="'+game.id+'" aria-label="'+(isFav?"Remove from":"Add to")+' favorites">'+(isFav?"★":"☆")+'</button><div class="game-card-art">'+game.icon+'</div><h3>'+game.name+'</h3><p>'+game.description+'</p><div class="game-card-bottom"><small>'+(online?"ONLINE + BOTS":isBotGame(game)?"VS LOCAL BOTS":game.kind==="table"?"TABLE GAME":"ARCADE")+'</small><div class="game-card-actions">'+(online?'<button class="play-online" data-online="'+game.id+'">ONLINE</button>':"")+'<button class="play-card" data-play="'+game.id+'">PLAY ↗</button></div></div></article>';
 }
 function renderGrid(){
   const list=visibleGames();
@@ -200,9 +201,10 @@ async function restoreGitHubSession(){
     if(remote)applyCloudPayload(remote);else await syncCloudNow();
   }catch(error){showToast("GitHub sync issue: "+error.message);}
 }
-function openRooms(){
+function openRooms(gameId=""){
+  const defaultMode=gameCatalog.find(game=>game.id===gameId)?.mode||gameId||"";
   openModal("Online multiplayer rooms",'<div id="multiplayerRoomRoot"></div>');
-  roomSession=mountMultiplayerRooms($("#multiplayerRoomRoot"),{defaultName:cloudUser?.login||""});
+  roomSession=mountMultiplayerRooms($("#multiplayerRoomRoot"),{defaultName:cloudUser?.login||"",defaultMode});
 }
 
 function showHistory(){
@@ -239,6 +241,7 @@ $("#sortSelect").addEventListener("change",e=>{sortMode=e.target.value;renderGri
 $("#categoryFilters").addEventListener("click",e=>{const b=e.target.closest("[data-category]");if(b){favoritesOnly=false;activeCategory=b.dataset.category;renderGrid();}});
 $("#gameGrid").addEventListener("click",e=>{
   const fav=e.target.closest("[data-favorite]");if(fav){e.stopPropagation();toggleFavorite(fav.dataset.favorite);return;}
+  const online=e.target.closest("[data-online]");if(online){openRooms(online.dataset.online);return;}
   const play=e.target.closest("[data-play]");if(play){openGame(play.dataset.play);return;}
   const card=e.target.closest("[data-card]");if(card)openGame(card.dataset.card);
 });
