@@ -74,3 +74,5 @@ export function rollPowerChoices(count = 3, excluded = []) {
 export const POWER_COUNT = POWER_CATALOG.length;
 export const POWER_ARCHETYPES = techniques.length;
 export const POWER_UNIVERSES = universes.length;
+
+export const POWER_MECHANICS = new Set(techniques.map(technique => technique.effectId)).size;
