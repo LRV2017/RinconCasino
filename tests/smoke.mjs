@@ -54,13 +54,16 @@ let checkers=createRoomBoard("checkers");
 checkers=applyRoomMove(checkers,0,{from:{r:5,c:1},to:{r:4,c:0}});
 assert.ok(checkers,"a legal opening checkers move should be accepted");
 assert.equal(checkers.turn,1);
-assert.equal(applyRoomMove(checkers,1,{from:{r:2,c:0},to:{r:4,c:2}}),null,"a checkers jump over an empty square must be rejected");
+assert.equal(applyRoomMove(checkers,1,{from:{r:2,c:1},to:{r:4,c:3}}),null,"a checkers jump over an empty square must be rejected");
 
 let battle=createRoomBoard("battleship");
 battle=applyRoomMove(battle,0,{r:0,c:0});
 assert.ok(battle,"a first Battleship shot should be accepted");
 assert.equal(battle.turn,1);
-assert.equal(applyRoomMove(battle,1,{r:0,c:0}),null,"players cannot shoot the same coordinate twice on their own turn");
+assert.equal(applyRoomMove(battle,0,{r:0,c:1}),null,"a Battleship player cannot move out of turn");
+battle=applyRoomMove(battle,1,{r:0,c:0});
+battle=applyRoomMove(battle,0,{r:0,c:1});
+assert.equal(applyRoomMove(battle,1,{r:0,c:0}),null,"a player cannot shoot the same coordinate twice");
 const guestView=getPublicRoomState(battle,1);
 assert.equal(guestView.fleets,undefined,"a guest must never receive the hidden full fleet arrays");
 assert.ok(Array.isArray(guestView.ownFleet)&&Array.isArray(guestView.outgoingShots)&&Array.isArray(guestView.incomingShots),"Battleship should expose only the guest's own fleet and public shot history");
