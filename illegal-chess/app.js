@@ -1810,7 +1810,7 @@ function renderAccount() {
   if (!configured) {
     return heading("ACCOUNT / CLOUD SAVE", "YOUR PROGRESS, EVERYWHERE.", "Create a player account and back up your rating, shards, cosmetics, quests, and match record across devices.") +
       '<section class="panel cloud-setup-panel"><div class="cloud-setup-icon">☁</div><div class="eyebrow">ONE-TIME BACKEND SETUP REQUIRED</div><h2>CONNECT A CLOUD DATABASE.</h2><p>Accounts use Supabase Auth and your saves live in a private Postgres row. This is ready to connect, but a Supabase project belongs to you, so its project URL and publishable key must be added before registration can work.</p><div class="cloud-steps"><div><b>01</b><span>Create a free Supabase project.</span></div><div><b>02</b><span>Run the SQL in supabase/rogueboard.sql.</span></div><div><b>03</b><span>Put the Project URL and publishable key in illegal-chess/cloud-config.js.</span></div></div><div class="cloud-setup-actions"><a class="btn btn-primary" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">OPEN SUPABASE ↗</a><a class="btn btn-secondary" href="https://github.com/LRV2017/RinconCasino/blob/main/illegal-chess/ACCOUNTS.md" target="_blank" rel="noreferrer">SETUP GUIDE ↗</a></div><p class="cloud-safety-note">Only the public publishable key belongs in the browser. Never use a service-role or secret key here.</p></section>' +
-      '<section class="panel section-gap"><div class="panel-heading"><h3>YOUR CURRENT SAVE</h3><badge color="secondary">LOCAL CACHE</badge></div><p class="mode-note">You can keep playing right now. Your existing local progress remains intact while cloud accounts are being connected.</p></section>';
+      '<section class="panel section-gap"><div class="panel-heading"><h3>YOUR CURRENT SAVE</h3><span class="account-state-badge">LOCAL CACHE</span></div><p class="mode-note">You can keep playing right now. Your existing local progress remains intact while cloud accounts are being connected.</p></section>';
   }
 
   if (cloudState.user && cloudConflict) {
@@ -1825,7 +1825,7 @@ function renderAccount() {
   if (cloudState.user) {
     return heading("ACCOUNT / CLOUD SAVE", "YOU'RE SIGNED IN.", "Your player profile is connected to an online account. Changes to progression sync automatically after you play.") +
       '<div class="account-layout"><section class="panel account-identity"><div class="profile-large-avatar">' + escapeHTML((profile.name || "R").slice(0, 1).toUpperCase()) + '</div><h2>' + escapeHTML(profile.name || "ROOKIE") + '</h2><p>' + escapeHTML(cloudState.user.email || "Authenticated player") + '</p><div class="account-tag"><span class="status-dot"></span> SUPABASE AUTHENTICATED</div><button class="btn btn-secondary" data-action="account-signout">SIGN OUT</button></section>' +
-      '<section class="panel account-cloud"><div class="panel-heading"><h3>CLOUD SAVE STATUS</h3><badge color="' + (cloudState.sync === "saved" ? "success" : cloudState.sync === "error" ? "danger" : "secondary") + '">' + cloudState.sync.toUpperCase() + '</badge></div><div class="cloud-status-main"><span class="cloud-big-icon">☁</span><div><strong>' + escapeHTML(cloudState.status) + '</strong><small>' + (cloudState.lastSync ? "LAST SYNC · " + new Date(cloudState.lastSync).toLocaleString() : "WAITING FOR FIRST CLOUD SAVE") + '</small></div></div><button class="btn btn-primary" data-action="cloud-sync">SYNC NOW ↻</button>' +
+      '<section class="panel account-cloud"><div class="panel-heading"><h3>CLOUD SAVE STATUS</h3><span class="account-state-badge ' + (cloudState.sync === "saved" ? "is-saved" : cloudState.sync === "error" ? "is-error" : "") + '">' + cloudState.sync.toUpperCase() + '</span></div><div class="cloud-status-main"><span class="cloud-big-icon">☁</span><div><strong>' + escapeHTML(cloudState.status) + '</strong><small>' + (cloudState.lastSync ? "LAST SYNC · " + new Date(cloudState.lastSync).toLocaleString() : "WAITING FOR FIRST CLOUD SAVE") + '</small></div></div><button class="btn btn-primary" data-action="cloud-sync">SYNC NOW ↻</button>' +
       (cloudState.error ? '<p class="cloud-error">' + escapeHTML(cloudState.error) + '</p>' : '') +
       '<div class="cloud-save-includes"><span>SYNCED</span><small>Rating · XP · Shards · Matches · Quests · Achievements · Board skins</small></div></section></div>' +
       '<section class="panel section-gap"><div class="eyebrow">ACCOUNT SECURITY</div><h3 style="font:700 24px var(--display);margin:8px 0">PRIVATE SAVE. PUBLIC KEY ONLY.</h3><p class="mode-note">Your database row is restricted by Row Level Security to your authenticated user ID. Rogueboard never stores your password in the save file. The browser does retain an Auth session so you stay signed in on this device.</p></section>';
@@ -1833,7 +1833,7 @@ function renderAccount() {
 
   return heading("ACCOUNT / CLOUD SAVE", "MAKE IT OFFICIAL.", "Create an account so your progression follows you between browsers and devices.") +
     '<section class="panel auth-panel"><div class="auth-panel-title"><div class="eyebrow">ROGUEBOARD PLAYER ACCOUNT</div><h2>YOUR GAME. YOUR SAVE.</h2><p>One account for your callsign, rating, unlocks, and match record.</p></div><div class="auth-fields"><label for="account-name">CALLSIGN <small>USED AS YOUR PLAYER NAME</small></label><input id="account-name" class="text-input" maxlength="16" placeholder="ROOKIE" value="' + escapeHTML(profile.name || "") + '"><label for="account-email">EMAIL ADDRESS</label><input id="account-email" class="text-input" type="email" autocomplete="email" placeholder="you@example.com"><label for="account-password">PASSWORD</label><input id="account-password" class="text-input" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters"><div class="auth-actions"><button class="btn btn-primary" data-action="account-signup">CREATE ACCOUNT ↗</button><button class="btn btn-secondary" data-action="account-signin">SIGN IN</button></div><button class="text-button" data-action="account-reset">FORGOT PASSWORD?</button></div></section>' +
-    '<section class="panel section-gap"><div class="panel-heading"><h3>LOCAL PROGRESS</h3><badge color="success">PRESERVED</badge></div><p class="mode-note">Your current device profile is safe. When you create your first account, Rogueboard will back this profile up automatically. If an existing cloud save is found, you will choose which copy to keep.</p></section>' +
+    '<section class="panel section-gap"><div class="panel-heading"><h3>LOCAL PROGRESS</h3><span class="account-state-badge is-saved">PRESERVED</span></div><p class="mode-note">Your current device profile is safe. When you create your first account, Rogueboard will back this profile up automatically. If an existing cloud save is found, you will choose which copy to keep.</p></section>' +
     (cloudState.status ? '<p class="cloud-foot-status">' + escapeHTML(cloudState.status) + '</p>' : '');
 }
 
@@ -1842,10 +1842,13 @@ async function accountCreate() {
   const email = ($("#account-email")?.value || "").trim();
   const password = $("#account-password")?.value || "";
   const displayName = ($("#account-name")?.value || profile.name || "ROOKIE").trim().slice(0, 16);
+  if (!displayName) { toast("Choose a callsign first.", "error"); return; }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast("Enter a valid email address.", "error"); return; }
   if (password.length < 8) { toast("Use a password with at least 8 characters.", "error"); return; }
   try {
     cloudState.status = "Creating your account…";
+    profile.name = displayName.toUpperCase();
+    saveProfile();
     render();
     const { data, error } = await cloudSignUp(email, password, displayName);
     if (error) throw error;
