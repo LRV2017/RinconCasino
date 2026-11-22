@@ -1,23 +1,7 @@
+import { createOnlineChessPosition, applyOnlineChessMove, getOnlineChessStatus, getOnlineChessMoves } from "./chess.js";
 const PEER_SCRIPT="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js";
 const ROOM_PREFIX="rincon-";
 const CODE_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const GAMES=[["ttt","Tic-Tac-Toe","3×3 · first to three"],["connect4","Connect Four","7×6 · connect four"],["reversi","Reversi","8×8 · most discs wins"],["gomoku","Gomoku","15×15 · connect five"]];
-const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let peerLoader;
-function loadPeer(){
-  if(window.Peer)return Promise.resolve(window.Peer);
-  if(!peerLoader)peerLoader=new Promise((resolve,reject)=>{
-    const script=document.createElement("script");script.src=PEER_SCRIPT;script.async=true;
-    script.onload=()=>window.Peer?resolve(window.Peer):reject(new Error("PeerJS did not expose its browser API."));
-    script.onerror=()=>{peerLoader=null;reject(new Error("Could not load PeerJS. Check your internet connection."));};
-    document.head.appendChild(script);
-  });
-  return peerLoader;
-}
-function randomCode(){
-  const bytes=new Uint8Array(8);crypto.getRandomValues(bytes);
-  return Array.from(bytes,b=>CODE_CHARS[b%CODE_CHARS.length]).join("");
-}
 const GAMES=[
   ["ttt","Tic-Tac-Toe","3×3 · first to three"],
   ["connect4","Connect Four","7×6 · connect four"],
