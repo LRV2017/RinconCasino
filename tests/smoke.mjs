@@ -51,7 +51,7 @@ chess=applyRoomMove(chess,1,{from:{r:1,c:4},to:{r:3,c:4}});
 assert.ok(chess,"e7-e5 should be accepted by the online chess rules");
 
 let checkers=createRoomBoard("checkers");
-checkers=applyRoomMove(checkers,0,{from:{r:5,c:1},to:{r:4,c:0}});
+checkers=applyRoomMove(checkers,0,{from:{r:5,c:0},to:{r:4,c:1}});
 assert.ok(checkers,"a legal opening checkers move should be accepted");
 assert.equal(checkers.turn,1);
 assert.equal(applyRoomMove(checkers,1,{from:{r:2,c:1},to:{r:4,c:3}}),null,"a checkers jump over an empty square must be rejected");
