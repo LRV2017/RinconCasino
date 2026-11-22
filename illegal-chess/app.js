@@ -378,9 +378,9 @@ function powerHint() {
 }
 function renderMatch() {
   const modeName = matchMode === "chaos" ? "CHAOS CHESS" : matchMode === "classic" ? "CLASSIC RULESET" : "TRAINING PUZZLE";
-  const label = puzzleActive ? "TACTICAL PUZZLE / MATE IN ONE" : modeName + " / " + (opponent === "local" ? "LOCAL DUEL" : "VS BOT");
+  const label = puzzleActive ? "TACTICAL PUZZLE / MATE IN ONE" : modeName + " / " + (opponent === "local" ? "LOCAL DUEL" : opponent === "online" ? "ONLINE DUEL" : "VS BOT");
   const turn = chess.turn();
-  const turnText = gameOver ? "MATCH COMPLETE" : botThinking ? "BOT IS THINKING" : (opponent === "local" && turn === "b" ? "PLAYER 2'S TURN" : turn === "w" ? "YOUR TURN" : "BOT'S TURN");
+  const turnText = gameOver ? "MATCH COMPLETE" : botThinking ? "BOT IS THINKING" : opponent === "online" ? (isHumanTurn() ? "YOUR TURN" : "OPPONENT TURN") : (opponent === "local" && turn === "b" ? "PLAYER 2'S TURN" : turn === "w" ? "YOUR TURN" : "BOT'S TURN");
   const blackTag = opponent === "local" ? "LOCAL PLAYER" : opponent === "online" ? "REMOTE PLAYER" : "TACTICAL AI";
   const whiteTag = "LEVEL " + levelInfo().level + " / " + currentRank().name;
   const logTitle = actionLog.length ? actionLog.length + " EVENTS" : "AWAITING FIRST MOVE";
