@@ -286,7 +286,7 @@ function boardHTML(s,player,selectedCell=null){
     return '<div class="p2p-mancala"><div class="p2p-store">'+s.pits[13]+'</div><div class="p2p-mancala-main"><div class="p2p-mancala-row">'+[12,11,10,9,8,7].map(pit).join("")+'</div><div class="p2p-mancala-row">'+[0,1,2,3,4,5].map(pit).join("")+'</div></div><div class="p2p-store">'+s.pits[6]+'</div></div>';
   }
   if(s.mode==="nim"){
-    return '<div class="p2p-nim-piles">'+s.piles.map((count,pile)=>'<section><small>PILE '+(pile+1)+'</small><strong>'+count+' stones</strong><div>'+Array.from({length:Math.min(3,count)},(_,i)=>'<button data-pile="'+pile+'" data-count="'+(i+1)+'" '+(!myTurn?"disabled":"")+'>Take '+(i+1)+'</button>').join("")+'</div></section>').join("")+'</div>';
+    return '<div class="p2p-nim-piles">'+s.piles.map((count,pile)=>'<section><small>PILE '+(pile+1)+'</small><strong>'+count+' stones</strong><div>'+Array.from({length:count},(_,i)=>'<button data-pile="'+pile+'" data-count="'+(i+1)+'" '+(!myTurn?"disabled":"")+'>Take '+(i+1)+'</button>').join("")+'</div></section>').join("")+'</div>';
   }
   if(s.mode==="dots"){
     const hrow=r=>'<div class="p2p-dots-row">'+Array.from({length:4},(_,c)=>'<span class="p2p-dot">●</span>'+(c<3?'<button class="p2p-dot-edge horizontal '+(s.h[r][c]?"p"+s.h[r][c]:"")+'" data-dot="h,'+r+','+c+'" '+(!myTurn||s.h[r][c]?"disabled":"")+'></button>':"")).join("")+'</div>';
