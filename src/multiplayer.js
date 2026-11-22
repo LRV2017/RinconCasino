@@ -96,7 +96,7 @@ function finishMancala(state){
     state.over=true;state.winner=state.pits[6]===state.pits[13]?null:state.pits[6]>state.pits[13]?0:1;
   }
 }
-function publicRoomState(state,player){
+export function getPublicRoomState(state,player){
   if(!state)return null;
   if(state.mode!=="battleship")return JSON.parse(JSON.stringify(state));
   return {
@@ -300,7 +300,7 @@ export function mountMultiplayerRooms(root,{defaultName="",defaultMode=""}={}){
   function send(message){
     if(!conn?.open)return;
     const packet={...message};
-    if(packet.state)packet.state=publicRoomState(packet.state,1);
+    if(packet.state)packet.state=getPublicRoomState(packet.state,1);
     conn.send(packet);
   }
   function roomId(){return ROOM_PREFIX+roomCode.toLowerCase();}
@@ -310,7 +310,7 @@ export function mountMultiplayerRooms(root,{defaultName="",defaultMode=""}={}){
     root.innerHTML='<div class="p2p-intro"><div class="game-icon-large">⌘</div><h3>Peer-to-peer rooms</h3><p>Invite a friend into a private head-to-head match. The host checks legal moves and shares the resulting game state over a direct peer connection.</p></div><div class="p2p-lobby-grid"><section class="p2p-panel"><h4>CREATE A ROOM</h4><label>Your display name<input id="p2pName" maxlength="20" value="'+esc(name)+'" placeholder="Your name"></label><label>Choose a game<select id="p2pGame">'+GAMES.map(g=>'<option value="'+g[0]+'" '+(g[0]===mode?"selected":"")+'>'+g[1]+' — '+g[2]+'</option>').join("")+'</select></label><button class="game-action primary" data-room="host">Create private room</button></section><section class="p2p-panel"><h4>JOIN A ROOM</h4><label>Your display name<input id="p2pJoinName" maxlength="20" value="'+esc(name)+'" placeholder="Your name"></label><label>Room code<input id="p2pCode" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="8-character code" value="'+esc(new URLSearchParams(location.hash.slice(1)).get("room")||"")+'"></label><button class="game-action primary" data-room="join">Join with code</button></section></div><div id="p2pStatus" class="result-banner">'+esc(message)+'</div><p class="p2p-footnote">No RinconCasino game server is used. PeerJS Cloud only brokers the WebRTC handshake; game traffic is peer-to-peer unless a network requires a TURN relay.</p>';
   }
   function render(){
-    const game=GAMES.find(g=>g[0]===mode),mySide=isHost?0:1,view=state?publicRoomState(state,mySide):null;
+    const game=GAMES.find(g=>g[0]===mode),mySide=isHost?0:1,view=state?getPublicRoomState(state,mySide):null;
     const text=!started?"Waiting for host to start…":state.over?(state.winner===null?"It's a draw.":state.winner===mySide?"You win!":"Your opponent wins."):(state.turn===mySide?"Your turn.":"Opponent's turn.");
     root.innerHTML='<div class="p2p-room-head"><div><small>ROOM CODE</small><strong>'+esc(roomCode)+'</strong></div><button class="button button-outline" data-room="copy">Copy invite</button></div><div class="p2p-room-meta"><span>'+esc(game?.[1]||"Game")+'</span><span>'+esc(name)+(isHost?" · HOST":"")+'</span><span>VS</span><span>'+esc(opponent)+(conn?.open?" · CONNECTED":" · WAITING")+'</span></div><div id="p2pStatus" class="result-banner">'+esc(text)+'</div>'+(started?'<div class="p2p-match"><div class="p2p-turn"><span>✕ / ● '+esc(name)+'</span><span>◯ / ○ '+esc(opponent)+'</span></div>'+boardHTML(view,mySide,selectedCell)+(state.over?'<button class="game-action primary" data-room="rematch" '+(!isHost?"disabled":"")+'>New match</button>':"")+'</div>':(isHost&&conn?.open?'<button class="game-action primary" data-room="start">Start match</button>':'<div class="p2p-waiting">Share the code with a friend. The host starts after they connect.</div>'))+'<section class="p2p-chat"><h4>ROOM CHAT</h4><div class="p2p-chat-log">'+chat.map(m=>'<div><b>'+esc(m.name)+'</b> '+esc(m.text)+'</div>').join("")+'</div><form id="p2pChatForm"><input id="p2pChatInput" maxlength="180" placeholder="Say something…" autocomplete="off"><button class="game-action secondary" type="submit">Send</button></form></section><button class="game-action secondary" data-room="leave">Leave room</button>';
   }
