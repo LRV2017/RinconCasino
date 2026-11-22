@@ -549,3 +549,8 @@ a { color: inherit; text-decoration: none; }
   .auth-actions { flex-direction:column; }
   .conflict-grid { grid-template-columns:1fr; }
 }
+
+
+.account-state-badge { display:inline-flex; align-items:center; padding:4px 7px; border:1px solid var(--line-strong); border-radius:4px; color:#a9b5ab; font:8px var(--mono); letter-spacing:.7px; }
+.account-state-badge.is-saved { color:var(--lime); border-color:rgba(216,255,63,.26); background:rgba(216,255,63,.06); }
+.account-state-badge.is-error { color:#ff9c7b; border-color:rgba(255,135,88,.3); background:rgba(255,135,88,.06); }
