@@ -34,6 +34,23 @@ const SKINS = [
   { id: "emerald", name: "VERDANT", price: 450, desc: "Deep forest green with pale stone.", light: "#bdd0b9", dark: "#315d4d" },
   { id: "royal", name: "ROYAL STATIC", price: 600, desc: "Violet marble for players above the rules.", light: "#d4c7e3", dark: "#514766" }
 ];
+const PIECE_SKINS = [
+  { id: "classic", name: "IVORY STANDARD", price: 0, desc: "The original carved chessmen.", white: "#fffdf0", black: "#242a28" },
+  { id: "neon", name: "NEON CIRCUIT", price: 300, desc: "Electric cyan and ultraviolet.", white: "#d1ffff", black: "#252cbd" },
+  { id: "ember", name: "EMBER FORGED", price: 400, desc: "Hot metal, ash, and molten orange.", white: "#ffe2bd", black: "#7e321b" },
+  { id: "royal", name: "ROYAL RELICS", price: 550, desc: "Gilded ivory against deep amethyst.", white: "#fff0b8", black: "#4a2b76" },
+  { id: "void", name: "VOID GLASS", price: 700, desc: "Cold silver and near-black glass.", white: "#e5ecf4", black: "#303840" }
+];
+const EMOTES = [
+  { id: "gg", name: "GOOD GAME", icon: "🤝", price: 0 },
+  { id: "salute", name: "SALUTE", icon: "🫡", price: 100 },
+  { id: "laugh", name: "CACKLE", icon: "😂", price: 150 },
+  { id: "fire", name: "ON FIRE", icon: "🔥", price: 200 },
+  { id: "crown", name: "CROWN", icon: "👑", price: 250 },
+  { id: "shock", name: "NO WAY", icon: "😱", price: 300 },
+  { id: "sleep", name: "TOO EASY", icon: "😴", price: 350 },
+  { id: "heart", name: "RESPECT", icon: "💚", price: 400 }
+];
 const DAILY_QUESTS = [
   { id: "play", title: "SHOW UP", icon: "♟", desc: "Finish any match today.", goal: 1, reward: 100, key: "matches" },
   { id: "capture", title: "TAKE WHAT'S YOURS", icon: "⚔", desc: "Capture 4 enemy pieces.", goal: 4, reward: 125, key: "captures" },
@@ -61,6 +78,10 @@ function makeProfile() {
     bestStreak: 0,
     unlockedSkins: ["standard"],
     equippedSkin: "standard",
+    unlockedPieces: ["classic"],
+    equippedPieces: "classic",
+    unlockedEmotes: ["gg"],
+    equippedEmote: "gg",
     daily: { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] },
     sound: true
   };
@@ -74,6 +95,10 @@ function loadProfile() {
     if (!merged.daily || merged.daily.date !== todayKey()) merged.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
     if (!Array.isArray(merged.unlockedSkins)) merged.unlockedSkins = ["standard"];
     if (!merged.unlockedSkins.includes("standard")) merged.unlockedSkins.unshift("standard");
+    if (!Array.isArray(merged.unlockedPieces)) merged.unlockedPieces = ["classic"];
+    if (!merged.unlockedPieces.includes("classic")) merged.unlockedPieces.unshift("classic");
+    if (!Array.isArray(merged.unlockedEmotes)) merged.unlockedEmotes = ["gg"];
+    if (!merged.unlockedEmotes.includes("gg")) merged.unlockedEmotes.unshift("gg");
     if (!merged.daily.claimed) merged.daily.claimed = [];
     return merged;
   } catch (error) {
@@ -255,8 +280,9 @@ function renderArmory() {
   }).join("");
   return heading("COSMETICS / LOADOUT", "MAKE IT YOURS.", "No pay-to-win nonsense. Every item is cosmetic, and all unlocks use earned in-game shards.") +
     '<div class="panel" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;gap:12px"><div><div class="eyebrow">YOUR WALLET</div><div style="font:700 26px var(--display);margin-top:5px">' + profile.credits.toLocaleString() + ' <span style="color:var(--lime)">◈ SHARDS</span></div></div><span style="color:var(--muted);font-size:9px;text-align:right">Earn shards by finishing matches<br>and claiming daily contracts.</span></div>' +
-    '<div class="inventory-grid">' + items + '</div>' +
-    '<div class="panel section-gap"><div class="eyebrow">ABILITY LOADOUT / ALWAYS EQUIPPED IN CHAOS</div><h3 style="font:700 24px var(--display);margin:8px 0 5px">THE SEVEN RULEBREAKERS</h3><p style="color:var(--muted);font-size:10px;line-height:1.6;margin:0 0 14px">Abilities are earned through play in this first release. They are not purchases, and they cannot be used in Classic mode.</p><div class="mode-features">' + POWERS.map(power => '<span>' + power.icon + " " + power.name + " · " + power.cost + " ENERGY</span>").join("") + '</div></div>';
+    '<div class="panel-heading section-gap"><h3>PIECE COLLECTION</h3><small>UNLOCKABLE SETS</small></div><div class="inventory-grid">' + renderPieceSkins() + '</div>' +
+    '<div class="panel-heading section-gap"><h3>EMOTE COLLECTION</h3><small>QUICK MATCH REACTIONS</small></div><div class="emote-store-grid">' + renderEmoteStore() + '</div>' +
+    '<div class="panel section-gap"><div class="eyebrow">1,000-CARD POWER VAULT</div><h3 style="font:700 24px var(--display);margin:8px 0 5px">ROLL YOUR POWER BEFORE THE MATCH.</h3><p style="color:var(--muted);font-size:10px;line-height:1.6;margin:0 0 14px">Each Chaos match starts with a three-card roll. Lock one crossover-inspired power for the game. The vault has 1,000 cards built from 20 distinct chess-effect archetypes.</p><div class="mode-features">' + POWER_CATALOG.slice(0, 12).map(power => '<span>' + power.icon + " " + escapeHTML(power.name) + "</span>").join("") + '</div><button class="btn btn-secondary btn-small" style="margin-top:14px" data-view="play">GO TO MATCH SETUP ↗</button></div>';
 }
 
 function renderQuests() {
@@ -354,7 +380,7 @@ function renderBoard() {
     const pieceHtml = piece ? '<span class="piece ' + (piece.color === "w" ? "white" : "black") + '">' + PIECES[piece.color][piece.type] + '</span>' : "";
     html += '<button class="' + classes + '" data-square="' + square + '" aria-label="' + square + (piece ? " " + piece.color + " " + piece.type : " empty") + '">' + rankLabel + fileLabel + marker + pieceHtml + shield + frozenMark + '</button>';
   }));
-  return '<div class="board-frame"><div class="chess-board skin-' + escapeHTML(activeSkin) + '" id="chess-board">' + html + '</div></div>';
+  return '<div class="board-frame"><div class="chess-board skin-' + escapeHTML(activeSkin) + ' pieces-' + escapeHTML(profile.equippedPieces || "classic") + '" id="chess-board">' + html + '</div></div>';
 }
 function energyPips(color) {
   let html = "";
@@ -1646,6 +1672,10 @@ function normalizeCloudProfile(data) {
   if (!merged.daily || merged.daily.date !== todayKey()) merged.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
   if (!Array.isArray(merged.unlockedSkins)) merged.unlockedSkins = ["standard"];
   if (!merged.unlockedSkins.includes("standard")) merged.unlockedSkins.unshift("standard");
+  if (!Array.isArray(merged.unlockedPieces)) merged.unlockedPieces = ["classic"];
+  if (!merged.unlockedPieces.includes("classic")) merged.unlockedPieces.unshift("classic");
+  if (!Array.isArray(merged.unlockedEmotes)) merged.unlockedEmotes = ["gg"];
+  if (!merged.unlockedEmotes.includes("gg")) merged.unlockedEmotes.unshift("gg");
   if (!merged.daily.claimed) merged.daily.claimed = [];
   return merged;
 }
