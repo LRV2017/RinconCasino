@@ -106,7 +106,7 @@ class FakeRoot{
     if(selector==="#bidCount")return {value:"1"};
     if(selector==="#bidFace")return {value:"2"};
     if(selector==="#target")return {value:"2"};
-    if(!this.elements.has(selector))this.elements.set(selector,{textContent:"",className:""});
+    if(!this.elements.has(selector))this.elements.set(selector,{textContent:"",className:"",innerHTML:"",classList:{add(){},remove(){},toggle(){}},appendChild(){},removeChild(){},getBoundingClientRect(){return {width:640,height:360};}});
     return this.elements.get(selector);
   }
   click(dataset){
