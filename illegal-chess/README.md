@@ -1,48 +1,50 @@
 # Rogueboard — Chess, Unchained
 
-Rogueboard is a standalone browser game inside the illegal-chess/ directory. It is inspired by the high-chaos chess concept: play ordinary chess, then break the rhythm with powers that change the board.
+Rogueboard is a standalone browser game in the illegal-chess/ directory. It takes the high-chaos chess idea in a new direction: pick a rolled crossover power, then use it to break the opponent's position.
 
 ## Play
 
 After GitHub Pages publishes the repository, open:
 
-https://<your-pages-host>/<repository>/illegal-chess/
+https://lrv2017.github.io/RinconCasino/illegal-chess/
 
-Run locally by serving the repository root over HTTP, then visit /illegal-chess/. For example:
+For local play, serve the repository root over HTTP and visit /illegal-chess/:
 
     npx serve .
 
-## Included in this first release
+## Current features
 
-- Chaos Chess and Classic modes.
-- Local two-player hotseat matches.
-- Three bot difficulty settings (Rookie, Tactical, Ruthless).
-- Full chess rules through chess.js: legal movement, check, checkmate, stalemate, castling, en passant, and promotion.
-- Seven chaos powers: Rocket, Blink, Freeze, Shield, Sniper, Swap, and Double Time.
-- Energy economy, board targeting, temporary freezes, and capture protection.
-- A mate-in-one training puzzle and a chaos sandbox.
-- Five cosmetic board skins.
-- Local rating, XP, levels, shards, daily contracts, achievements, and match history counters.
+- **Chaos Chess:** each player rolls three random powers and locks in exactly one at the start of the match.
+- **1,000 power cards:** 50 pop-culture universes × 20 named techniques. The current release uses seven core board effects (blast, teleport, freeze, shield, sniper, swap, and extra move) with card-specific costs/ranges. This is a 1,000-card roll pool, not 1,000 separately programmed physics systems.
+- **Crossover references:** card names reference well-known shows, films and games as a fan-made tribute. Rogueboard is unofficial and is not affiliated with any rights holder. It does not use franchise logos, character art, music or ripped assets.
+- **Private peer-to-peer rooms:** create a six-character room code or join a friend's code.
+- **WebRTC live play:** the room uses PeerJS for signalling, then sends match actions and board snapshots over a WebRTC data channel. The room host validates moves and powers and sends authoritative state to the guest.
+- **Classic Chess:** standard legal chess with check, checkmate, castling, en passant, promotion and draw rules.
+- **Local Duel:** two players share one device.
+- **Bots:** three difficulty settings for local play.
+- **Training Lab:** mate-in-one puzzle and chaos sandbox.
+- **Progression:** local rating, XP, levels, shards, daily contracts, achievements, and match counters.
+- **Armory:** five cosmetic board skins.
 - Responsive desktop and mobile layouts.
 
-## Important scope notes
+## Peer-to-peer notes
 
-This is a client-side first release. Your progress is stored in this browser using local storage. There is no account system, cloud sync, matchmaking, server-authoritative multiplayer, public leaderboard, or anti-cheat service yet. Local Duel is hotseat play on the same device. The bot plays legal chess; it does not currently use powers.
+The host creates a room ID in the PeerJS signalling service. The guest connects to that ID, and the browsers establish a WebRTC data connection. This is not a dedicated game server, but it does rely on a signalling service for rendezvous; some network configurations may require a TURN relay. The host must keep the browser tab open for the match to continue.
 
-The chess.js ES module is loaded from jsDelivr, so the first load requires an internet connection. No Roblox code, Roblox assets, or Roblox branding are included.
+The host is authoritative for board moves and power actions. This first release is intended for friendly private matches, not anti-cheat-secure ranked competition. There is no global matchmaking, public leaderboard, friends list, or chat yet.
 
-## Controls
+## Saving and privacy
 
-- Click a piece, then click a highlighted destination to move.
-- In Chaos mode, click a power card and then select the requested target square(s).
-- Press Escape to cancel power targeting.
-- Use Flip Board to change orientation.
-- Use New Match to restart or Resign to end the current match.
+Progression is saved in the current browser's local storage. Online room codes are temporary. There is no account system or cloud save yet. Clearing browser data removes the local profile.
+
+The first load requires an internet connection because chess.js and PeerJS are loaded as browser modules from CDNs.
 
 ## Project structure
 
-- index.html — standalone page shell
+- index.html — standalone site shell
 - styles.css — responsive visual system
-- app.js — chess gameplay, bot, powers, UI, local progression
+- app.js — chess gameplay, roll/draft UI, powers, bot, peer messages, and progression
+- power-bank.js — 1,000 unique rollable power cards
+- peer-room.js — PeerJS / WebRTC room transport
 
-Rogueboard is a separate sub-site. The existing Rincon Casino root application is not modified by these files.
+The existing Rincon Casino root app is not replaced by Rogueboard.
