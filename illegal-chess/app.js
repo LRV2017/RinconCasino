@@ -1635,3 +1635,294 @@ document.addEventListener("click", event => {
 });
 
 render();
+
+
+function normalizeCloudProfile(data) {
+  const merged = Object.assign(makeProfile(), data || {});
+  if (!merged.daily || merged.daily.date !== todayKey()) merged.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
+  if (!Array.isArray(merged.unlockedSkins)) merged.unlockedSkins = ["standard"];
+  if (!merged.unlockedSkins.includes("standard")) merged.unlockedSkins.unshift("standard");
+  if (!merged.daily.claimed) merged.daily.claimed = [];
+  return merged;
+}
+
+function scheduleCloudSave() {
+  if (!cloudConfigured || !cloudState.user || cloudConflict) return;
+  if (cloudSaveTimer) window.clearTimeout(cloudSaveTimer);
+  cloudState.sync = "pending";
+  syncChrome();
+  cloudSaveTimer = window.setTimeout(() => cloudSaveNow(false), 900);
+}
+
+async function cloudSaveNow(showToast = false) {
+  if (!cloudConfigured || !cloudState.user) {
+    if (showToast) toast("Sign in to an account to sync your progress.", "error");
+    return;
+  }
+  if (cloudConflict) {
+    if (showToast) toast("Choose which save to keep first.", "error");
+    return;
+  }
+  if (cloudSaveTimer) {
+    window.clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = null;
+  }
+  cloudState.sync = "saving";
+  cloudState.status = "Saving to your cloud account…";
+  syncChrome();
+  if (currentView === "account") render();
+  try {
+    const snapshot = {
+      app: "rogueboard",
+      version: 1,
+      profile: JSON.parse(JSON.stringify(profile)),
+      savedAt: new Date().toISOString()
+    };
+    const result = await cloudWriteSave(cloudState.user.id, snapshot);
+    cloudState.sync = "saved";
+    cloudState.status = "Cloud save is up to date.";
+    cloudState.lastSync = result.updated_at || new Date().toISOString();
+    cloudState.error = "";
+    syncChrome();
+    if (currentView === "account") render();
+    if (showToast) toast("Progress saved to your account.");
+  } catch (error) {
+    cloudState.sync = "error";
+    cloudState.status = error?.message || "Cloud save failed.";
+    cloudState.error = cloudState.status;
+    syncChrome();
+    if (currentView === "account") render();
+    if (showToast) toast("Cloud save failed: " + cloudState.status, "error");
+  }
+}
+
+async function hydrateCloudSave(user) {
+  if (!user || !cloudConfigured) return;
+  if (cloudLoadedUserId === user.id || cloudHydratingUserId === user.id) return;
+  cloudHydratingUserId = user.id;
+  cloudState.user = user;
+  cloudState.status = "Loading your cloud save…";
+  cloudState.sync = "loading";
+  syncChrome();
+  try {
+    const remote = await cloudLoadSave(user.id);
+    const localText = localStorage.getItem(PROFILE_KEY);
+    const localData = localText ? normalizeCloudProfile(JSON.parse(localText)) : null;
+    const remoteData = remote?.save_data?.profile ? normalizeCloudProfile(remote.save_data.profile) : null;
+
+    if (remoteData && localData && JSON.stringify(remoteData) !== JSON.stringify(localData)) {
+      cloudConflict = {
+        local: localData,
+        remote: remoteData,
+        remoteUpdatedAt: remote.updated_at || null
+      };
+      cloudState.status = "Two different saves found. Choose which one to keep.";
+      cloudState.sync = "conflict";
+      cloudLoadedUserId = user.id;
+      currentView = "account";
+      render();
+      return;
+    }
+
+    if (remoteData) {
+      profile = remoteData;
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+      cloudState.status = "Cloud save loaded on this device.";
+      cloudState.sync = "saved";
+      cloudState.lastSync = remote.updated_at || null;
+    } else {
+      cloudState.status = "Account is ready. Uploading this device's progress…";
+      cloudState.sync = "saving";
+      const snapshot = {
+        app: "rogueboard",
+        version: 1,
+        profile: JSON.parse(JSON.stringify(profile)),
+        savedAt: new Date().toISOString()
+      };
+      const result = await cloudWriteSave(user.id, snapshot);
+      cloudState.status = "This device's progress is now backed up to the cloud.";
+      cloudState.sync = "saved";
+      cloudState.lastSync = result.updated_at || new Date().toISOString();
+    }
+    cloudState.error = "";
+    cloudLoadedUserId = user.id;
+    saveProfile();
+    syncChrome();
+    if (currentView === "account") render();
+  } catch (error) {
+    cloudState.status = error?.message || "Could not load the cloud save.";
+    cloudState.sync = "error";
+    cloudState.error = cloudState.status;
+    syncChrome();
+    if (currentView === "account") render();
+  } finally {
+    cloudHydratingUserId = null;
+  }
+}
+
+async function handleCloudSession(user) {
+  if (!user) {
+    cloudState.user = null;
+    cloudState.sync = "local";
+    cloudState.status = cloudConfigured ? "Signed out. Progress is saved on this device." : "Cloud not configured.";
+    cloudConflict = null;
+    cloudLoadedUserId = null;
+    syncChrome();
+    if (currentView === "account") render();
+    return;
+  }
+  cloudState.user = user;
+  await hydrateCloudSave(user);
+}
+
+async function initCloud() {
+  if (!cloudConfigured) {
+    cloudState.ready = true;
+    cloudState.status = "Add your Supabase project settings to enable accounts.";
+    syncChrome();
+    return;
+  }
+  cloudState.status = "Connecting to Supabase…";
+  try {
+    cloudAuthSubscription = cloudOnAuthStateChange((event, session) => {
+      window.setTimeout(() => handleCloudSession(session?.user || null), 0);
+    });
+    const { data, error } = await cloudGetSession();
+    if (error) throw error;
+    await handleCloudSession(data.session?.user || null);
+    cloudState.ready = true;
+    if (!data.session?.user) cloudState.status = "Ready. Sign in or create an account.";
+  } catch (error) {
+    cloudState.status = error?.message || "Could not initialize account services.";
+    cloudState.sync = "error";
+    cloudState.error = cloudState.status;
+  }
+  syncChrome();
+  if (currentView === "account") render();
+}
+
+function renderAccount() {
+  const configured = cloudConfigured;
+  if (!configured) {
+    return heading("ACCOUNT / CLOUD SAVE", "YOUR PROGRESS, EVERYWHERE.", "Create a player account and back up your rating, shards, cosmetics, quests, and match record across devices.") +
+      '<section class="panel cloud-setup-panel"><div class="cloud-setup-icon">☁</div><div class="eyebrow">ONE-TIME BACKEND SETUP REQUIRED</div><h2>CONNECT A CLOUD DATABASE.</h2><p>Accounts use Supabase Auth and your saves live in a private Postgres row. This is ready to connect, but a Supabase project belongs to you, so its project URL and publishable key must be added before registration can work.</p><div class="cloud-steps"><div><b>01</b><span>Create a free Supabase project.</span></div><div><b>02</b><span>Run the SQL in supabase/rogueboard.sql.</span></div><div><b>03</b><span>Put the Project URL and publishable key in illegal-chess/cloud-config.js.</span></div></div><div class="cloud-setup-actions"><a class="btn btn-primary" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">OPEN SUPABASE ↗</a><a class="btn btn-secondary" href="https://github.com/LRV2017/RinconCasino/blob/main/illegal-chess/ACCOUNTS.md" target="_blank" rel="noreferrer">SETUP GUIDE ↗</a></div><p class="cloud-safety-note">Only the public publishable key belongs in the browser. Never use a service-role or secret key here.</p></section>' +
+      '<section class="panel section-gap"><div class="panel-heading"><h3>YOUR CURRENT SAVE</h3><badge color="secondary">LOCAL CACHE</badge></div><p class="mode-note">You can keep playing right now. Your existing local progress remains intact while cloud accounts are being connected.</p></section>';
+  }
+
+  if (cloudState.user && cloudConflict) {
+    const local = cloudConflict.local;
+    const remote = cloudConflict.remote;
+    return heading("ACCOUNT / SAVE CONFLICT", "WHICH FILE IS YOURS?", "This browser and your account both contain progress. Nothing has been overwritten. Choose the version you want to keep.") +
+      '<div class="conflict-grid"><section class="panel conflict-card"><div class="eyebrow">THIS DEVICE</div><h2>LOCAL SAVE</h2><div class="conflict-stat"><strong>' + local.name + '</strong><small>CALLSIGN</small></div><div class="conflict-stat"><strong>' + local.rating + '</strong><small>RATING</small></div><div class="conflict-stat"><strong>' + local.matches + '</strong><small>MATCHES</small></div><div class="conflict-stat"><strong>' + local.credits.toLocaleString() + '</strong><small>SHARDS</small></div><button class="btn btn-secondary" data-action="use-device-save">UPLOAD THIS DEVICE ↗</button></section>' +
+      '<section class="panel conflict-card cloud-conflict-card"><div class="eyebrow">SUPABASE ACCOUNT</div><h2>CLOUD SAVE</h2><div class="conflict-stat"><strong>' + remote.name + '</strong><small>CALLSIGN</small></div><div class="conflict-stat"><strong>' + remote.rating + '</strong><small>RATING</small></div><div class="conflict-stat"><strong>' + remote.matches + '</strong><small>MATCHES</small></div><div class="conflict-stat"><strong>' + remote.credits.toLocaleString() + '</strong><small>SHARDS</small></div><button class="btn btn-primary" data-action="use-cloud-save">USE CLOUD SAVE ↗</button></section></div>' +
+      '<p class="cloud-safety-note">Account: ' + escapeHTML(cloudState.user.email || "") + ' · Cloud updated: ' + (cloudConflict.remoteUpdatedAt ? new Date(cloudConflict.remoteUpdatedAt).toLocaleString() : "unknown") + '</p>';
+  }
+
+  if (cloudState.user) {
+    return heading("ACCOUNT / CLOUD SAVE", "YOU'RE SIGNED IN.", "Your player profile is connected to an online account. Changes to progression sync automatically after you play.") +
+      '<div class="account-layout"><section class="panel account-identity"><div class="profile-large-avatar">' + escapeHTML((profile.name || "R").slice(0, 1).toUpperCase()) + '</div><h2>' + escapeHTML(profile.name || "ROOKIE") + '</h2><p>' + escapeHTML(cloudState.user.email || "Authenticated player") + '</p><div class="account-tag"><span class="status-dot"></span> SUPABASE AUTHENTICATED</div><button class="btn btn-secondary" data-action="account-signout">SIGN OUT</button></section>' +
+      '<section class="panel account-cloud"><div class="panel-heading"><h3>CLOUD SAVE STATUS</h3><badge color="' + (cloudState.sync === "saved" ? "success" : cloudState.sync === "error" ? "danger" : "secondary") + '">' + cloudState.sync.toUpperCase() + '</badge></div><div class="cloud-status-main"><span class="cloud-big-icon">☁</span><div><strong>' + escapeHTML(cloudState.status) + '</strong><small>' + (cloudState.lastSync ? "LAST SYNC · " + new Date(cloudState.lastSync).toLocaleString() : "WAITING FOR FIRST CLOUD SAVE") + '</small></div></div><button class="btn btn-primary" data-action="cloud-sync">SYNC NOW ↻</button>' +
+      (cloudState.error ? '<p class="cloud-error">' + escapeHTML(cloudState.error) + '</p>' : '') +
+      '<div class="cloud-save-includes"><span>SYNCED</span><small>Rating · XP · Shards · Matches · Quests · Achievements · Board skins</small></div></section></div>' +
+      '<section class="panel section-gap"><div class="eyebrow">ACCOUNT SECURITY</div><h3 style="font:700 24px var(--display);margin:8px 0">PRIVATE SAVE. PUBLIC KEY ONLY.</h3><p class="mode-note">Your database row is restricted by Row Level Security to your authenticated user ID. Rogueboard never stores your password in the save file. The browser does retain an Auth session so you stay signed in on this device.</p></section>';
+  }
+
+  return heading("ACCOUNT / CLOUD SAVE", "MAKE IT OFFICIAL.", "Create an account so your progression follows you between browsers and devices.") +
+    '<section class="panel auth-panel"><div class="auth-panel-title"><div class="eyebrow">ROGUEBOARD PLAYER ACCOUNT</div><h2>YOUR GAME. YOUR SAVE.</h2><p>One account for your callsign, rating, unlocks, and match record.</p></div><div class="auth-fields"><label for="account-name">CALLSIGN <small>USED AS YOUR PLAYER NAME</small></label><input id="account-name" class="text-input" maxlength="16" placeholder="ROOKIE" value="' + escapeHTML(profile.name || "") + '"><label for="account-email">EMAIL ADDRESS</label><input id="account-email" class="text-input" type="email" autocomplete="email" placeholder="you@example.com"><label for="account-password">PASSWORD</label><input id="account-password" class="text-input" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters"><div class="auth-actions"><button class="btn btn-primary" data-action="account-signup">CREATE ACCOUNT ↗</button><button class="btn btn-secondary" data-action="account-signin">SIGN IN</button></div><button class="text-button" data-action="account-reset">FORGOT PASSWORD?</button></div></section>' +
+    '<section class="panel section-gap"><div class="panel-heading"><h3>LOCAL PROGRESS</h3><badge color="success">PRESERVED</badge></div><p class="mode-note">Your current device profile is safe. When you create your first account, Rogueboard will back this profile up automatically. If an existing cloud save is found, you will choose which copy to keep.</p></section>' +
+    (cloudState.status ? '<p class="cloud-foot-status">' + escapeHTML(cloudState.status) + '</p>' : '');
+}
+
+async function accountCreate() {
+  if (!cloudConfigured) { toast("Set up Supabase first using the Account page instructions.", "error"); return; }
+  const email = ($("#account-email")?.value || "").trim();
+  const password = $("#account-password")?.value || "";
+  const displayName = ($("#account-name")?.value || profile.name || "ROOKIE").trim().slice(0, 16);
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast("Enter a valid email address.", "error"); return; }
+  if (password.length < 8) { toast("Use a password with at least 8 characters.", "error"); return; }
+  try {
+    cloudState.status = "Creating your account…";
+    render();
+    const { data, error } = await cloudSignUp(email, password, displayName);
+    if (error) throw error;
+    if (data.user && data.session) await handleCloudSession(data.user);
+    else {
+      cloudState.status = "Account created. Check your email to confirm it, then return here to sign in.";
+      toast("Check your email for the confirmation link.");
+      render();
+    }
+  } catch (error) {
+    cloudState.status = error?.message || "Could not create your account.";
+    toast(cloudState.status, "error");
+    render();
+  }
+}
+
+async function accountLogin() {
+  if (!cloudConfigured) { toast("Set up Supabase first using the Account page instructions.", "error"); return; }
+  const email = ($("#account-email")?.value || "").trim();
+  const password = $("#account-password")?.value || "";
+  if (!email || !password) { toast("Enter your email and password.", "error"); return; }
+  try {
+    cloudState.status = "Signing in…";
+    render();
+    const { data, error } = await cloudSignIn(email, password);
+    if (error) throw error;
+    await handleCloudSession(data.user);
+    toast("Signed in. Loading your account save.");
+  } catch (error) {
+    cloudState.status = error?.message || "Could not sign in.";
+    toast(cloudState.status, "error");
+    render();
+  }
+}
+
+async function accountLogout() {
+  try {
+    if (cloudConfigured) await cloudSignOut();
+    await handleCloudSession(null);
+    currentView = "account";
+    render();
+    toast("Signed out. Your local cache stays on this device.");
+  } catch (error) {
+    toast(error?.message || "Could not sign out.", "error");
+  }
+}
+
+async function accountResetPassword() {
+  if (!cloudConfigured) { toast("Set up Supabase first using the Account page instructions.", "error"); return; }
+  const email = ($("#account-email")?.value || "").trim();
+  if (!email) { toast("Enter your email address first.", "error"); return; }
+  try {
+    const { error } = await cloudSendPasswordReset(email);
+    if (error) throw error;
+    cloudState.status = "If that account exists, a password reset link has been sent.";
+    toast("Check your email for a password reset link.");
+    render();
+  } catch (error) {
+    toast(error?.message || "Could not send the reset email.", "error");
+  }
+}
+
+function useCloudConflict() {
+  if (!cloudConflict) return;
+  profile = normalizeCloudProfile(cloudConflict.remote);
+  cloudConflict = null;
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
+  cloudState.status = "Cloud save restored to this device.";
+  cloudState.sync = "saved";
+  cloudState.lastSync = new Date().toISOString();
+  syncChrome();
+  render();
+  toast("Cloud save loaded.");
+}
+
+async function useLocalConflict() {
+  if (!cloudConflict) return;
+  profile = normalizeCloudProfile(cloudConflict.local);
+  cloudConflict = null;
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
+  await cloudSaveNow(true);
+  render();
+}
+
