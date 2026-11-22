@@ -30,6 +30,8 @@ jobs:
           node --check illegal-chess/app.js
           node --check illegal-chess/power-bank.js
           node --check illegal-chess/peer-room.js
+          node --check illegal-chess/cloud.js
+          node --check illegal-chess/cloud-config.js
       - name: Verify power catalogue size and uniqueness
         run: |
-          node --input-type=module -e "import('./illegal-chess/power-bank.js').then(({POWER_CATALOG, POWER_COUNT}) => { const ids = new Set(POWER_CATALOG.map(power => power.id)); if (POWER_COUNT !== 1000 || ids.size !== 1000) throw new Error('Expected exactly 1,000 unique powers'); console.log('Verified ' + POWER_COUNT + ' unique powers.'); })"
+          node --input-type=module -e "import('./illegal-chess/power-bank.js').then(({POWER_CATALOG, POWER_COUNT, POWER_MECHANICS}) => { const ids = new Set(POWER_CATALOG.map(power => power.id)); if (POWER_COUNT !== 1000 || ids.size !== 1000 || POWER_MECHANICS !== 20) throw new Error('Expected 1,000 unique cards across 20 unique mechanics'); console.log('Verified ' + POWER_COUNT + ' unique powers across ' + POWER_MECHANICS + ' mechanics.'); })"
