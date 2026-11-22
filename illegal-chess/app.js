@@ -1,4 +1,6 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
+import { POWER_CATALOG, POWER_COUNT, POWER_UNIVERSES, POWER_ARCHETYPES, getPowerById, rollPowerChoices } from "./power-bank.js";
+import { PeerRoom } from "./peer-room.js";
 
 const PROFILE_KEY = "rogueboard.profile.v1";
 const PUZZLE_FEN = "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1";
@@ -102,6 +104,14 @@ let gameCaptures = 0;
 let lastResult = null;
 let activeSkin = profile.equippedSkin || "standard";
 let resultModalVisible = false;
+let activePowers = { w: null, b: null };
+let draftChoices = [];
+let draftSelection = null;
+let draftContext = null;
+let draftRerolls = 0;
+let net = { role: null, connected: false, phase: "idle", roomCode: "", status: "Create a room or join a friend.", remoteName: "OPPONENT", myPower: null, remotePower: null };
+let peerRoom = null;
+let handlingRemote = false;
 
 function saveProfile() {
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { toast("Could not save this profile in your browser.", "error"); }
@@ -135,7 +145,7 @@ function syncChrome() {
   $("#top-coins").textContent = profile.credits.toLocaleString();
   $("#top-avatar").textContent = name.slice(0, 1);
   $$(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.view === currentView));
-  const titles = { home: "THE ARENA", play: "CHOOSE YOUR FIGHT", practice: "TRAINING LAB", armory: "THE ARMORY", quests: "DAILY CONTRACTS", rank: "SEASON 01", profile: "PLAYER PROFILE", match: "LIVE MATCH" };
+  const titles = { home: "THE ARENA", play: "CHOOSE YOUR FIGHT", practice: "TRAINING LAB", armory: "THE ARMORY", quests: "DAILY CONTRACTS", rank: "SEASON 01", profile: "PLAYER PROFILE", match: "LIVE MATCH", online: "PEER-TO-PEER ROOMS", draft: "POWER ROLL / SELECT ONE" };
   $("#top-section").textContent = titles[currentView] || "THE ARENA";
 }
 function toast(message, type = "success") {
@@ -199,7 +209,7 @@ function renderHome() {
 
 function renderPlay() {
   const modes = [
-    { id: "chaos", title: "CHAOS CHESS", tag: "THE MAIN EVENT", pill: "RECOMMENDED", icon: "♜", desc: "Traditional chess gets thrown out the window. Use abilities to blast, freeze, teleport, and outplay your opponent.", features: ["7 POWERS", "ENERGY SYSTEM", "BOT OPPONENT"], banner: "chaos" },
+    { id: "chaos", title: "CHAOS CHESS", tag: "THE MAIN EVENT", pill: "RECOMMENDED", icon: "♜", desc: "Traditional chess gets thrown out the window. Use abilities to blast, freeze, teleport, and outplay your opponent.", features: ["1,000-POWER POOL", "ROLL 3 / PICK 1", "BOT OPPONENT"], banner: "chaos" },
     { id: "classic", title: "CLASSIC", tag: "NO SHORTCUTS", pill: "PURE SKILL", icon: "♔", desc: "Every move has to be earned. Full legal chess rules, promotion, castling, en passant, check and checkmate.", features: ["STANDARD RULES", "NO POWERS", "BOT OPPONENT"], banner: "classic" },
     { id: "local", title: "LOCAL DUEL", tag: "SAME DEVICE", pill: "2 PLAYERS", icon: "⚔", desc: "Challenge a friend sitting next to you. Pass the keyboard after every move. Chaos or classic rules.", features: ["HOTSEAT", "2 HUMAN PLAYERS", "PRIVATE"], banner: "training" }
   ];
@@ -209,7 +219,7 @@ function renderPlay() {
   });
   return heading("MATCHMAKING / CONFIGURATION", "PICK YOUR POISON.", "Choose how you want to play. Your match history and unlocks stay saved in this browser.") +
     '<div class="mode-select-grid">' + cards + '</div>' +
-    '<div class="setup-bar"><div class="setup-field"><label for="opponent-select">OPPONENT</label><select id="opponent-select"><option value="bot" ' + (selectedOpponent === "bot" ? "selected" : "") + '>Training bot</option><option value="local" ' + (selectedOpponent === "local" ? "selected" : "") + '>Local 2-player</option></select></div><div class="setup-field"><label for="difficulty-select">BOT DIFFICULTY</label><select id="difficulty-select"><option value="easy" ' + (selectedDifficulty === "easy" ? "selected" : "") + '>Rookie</option><option value="steady" ' + (selectedDifficulty === "steady" ? "selected" : "") + '>Tactical</option><option value="hard" ' + (selectedDifficulty === "hard" ? "selected" : "") + '>Ruthless</option></select></div><div class="setup-field"><label>YOUR LOADOUT</label><div style="height:35px;display:flex;align-items:center;color:var(--lime);font:9px var(--mono)">◈ ' + (selectedMode === "chaos" ? "7 POWERS EQUIPPED" : "STANDARD RULESET") + '</div></div><button class="btn btn-primary" data-action="start-match">START MATCH <span>↗</span></button></div>' +
+    '<div class="setup-bar"><div class="setup-field"><label for="opponent-select">OPPONENT</label><select id="opponent-select"><option value="bot" ' + (selectedOpponent === "bot" ? "selected" : "") + '>Training bot</option><option value="local" ' + (selectedOpponent === "local" ? "selected" : "") + '>Local 2-player</option></select></div><div class="setup-field"><label for="difficulty-select">BOT DIFFICULTY</label><select id="difficulty-select"><option value="easy" ' + (selectedDifficulty === "easy" ? "selected" : "") + '>Rookie</option><option value="steady" ' + (selectedDifficulty === "steady" ? "selected" : "") + '>Tactical</option><option value="hard" ' + (selectedDifficulty === "hard" ? "selected" : "") + '>Ruthless</option></select></div><div class="setup-field"><label>YOUR LOADOUT</label><div style="height:35px;display:flex;align-items:center;color:var(--lime);font:9px var(--mono)">◈ ' + (selectedMode === "chaos" ? "ROLL 3 / LOCK 1 FROM 1,000" : "STANDARD RULESET") + '</div></div><button class="btn btn-primary" data-action="start-match">START MATCH <span>↗</span></button></div>' +
     '<div class="panel section-gap" style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap"><div><div class="eyebrow">NOT READY FOR A FIGHT?</div><h3 style="font:700 23px var(--display);margin:9px 0 4px">WARM UP IN THE TRAINING LAB.</h3><p style="color:var(--muted);font-size:10px;margin:0">Learn the powers, solve a mate-in-one, or test a new idea without risking your rating.</p></div><button class="btn btn-secondary" data-view="practice">OPEN TRAINING LAB ↗</button></div>';
 }
 
@@ -278,7 +288,7 @@ function renderProfile() {
   return heading("PLAYER / IDENTITY", "YOUR FILE.", "Your profile, match record, unlocks, and achievements. Everything here is stored locally in your browser.") +
     '<div class="profile-layout"><section class="panel profile-card"><div class="profile-large-avatar">' + escapeHTML((profile.name || "R").slice(0, 1).toUpperCase()) + '</div><h2>' + escapeHTML(profile.name || "ROOKIE") + '</h2><p>' + rank.name + ' DIVISION · PLAYER LEVEL ' + level.level + '</p><div class="profile-xp"><div><span>EXPERIENCE POINTS</span><span>' + level.current + ' / ' + level.next + '</span></div><div class="xp-track"><i style="width:' + level.percent + '%"></i></div></div><div class="profile-edit"><input class="text-input" id="profile-name-input" maxlength="16" value="' + escapeHTML(profile.name) + '" aria-label="Player callsign"><button class="btn btn-primary btn-small" data-action="save-name">SAVE</button></div><button class="text-button" style="margin-top:14px" data-action="reset-profile">RESET LOCAL PROFILE</button></section>' +
     '<section class="panel"><div class="panel-heading"><h3>CAREER SNAPSHOT</h3><small>ALL TIME</small></div><div class="stats-row"><div class="stat-card"><div class="stat-top">MATCHES</div><div class="stat-value">' + profile.matches + '</div></div><div class="stat-card"><div class="stat-top">WINS</div><div class="stat-value">' + profile.wins + '</div></div><div class="stat-card"><div class="stat-top">LOSSES</div><div class="stat-value">' + profile.losses + '</div></div><div class="stat-card"><div class="stat-top">RATING</div><div class="stat-value">' + profile.rating + '</div></div></div><div class="panel-heading" style="margin-top:22px"><h3>ACHIEVEMENTS</h3><small>' + achievements.filter(item => item.done).length + ' / ' + achievements.length + ' UNLOCKED</small></div><div class="achievement-grid">' + achievements.map(item => '<div class="achievement" style="opacity:' + (item.done ? "1" : ".48") + '"><span class="achievement-icon">' + item.icon + '</span><div><strong>' + item.title + '</strong><small>' + item.desc + '</small></div></div>').join("") + '</div></section></div>' +
-    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL-FIRST</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">This first release does not require an account. Your name, rating, shards, match totals, quests, and unlocked cosmetics are stored in this browser local storage. Clearing browser data removes this local profile. No online matchmaking, cloud saves, or public leaderboard is connected yet.</p></div>';
+    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL-FIRST</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">This first release does not require an account. Your name, rating, shards, match totals, quests, and unlocked cosmetics are stored in this browser local storage. Clearing browser data removes this local profile. Peer-to-peer invite rooms are supported for live matches. Profile progression still saves locally; cloud saves and a public leaderboard are not connected yet.</p></div>';
 }
 
 function playerName(color) {
@@ -364,7 +374,7 @@ function renderMatch() {
   const label = puzzleActive ? "TACTICAL PUZZLE / MATE IN ONE" : modeName + " / " + (opponent === "local" ? "LOCAL DUEL" : "VS BOT");
   const turn = chess.turn();
   const turnText = gameOver ? "MATCH COMPLETE" : botThinking ? "BOT IS THINKING" : (opponent === "local" && turn === "b" ? "PLAYER 2'S TURN" : turn === "w" ? "YOUR TURN" : "BOT'S TURN");
-  const blackTag = opponent === "local" ? "LOCAL PLAYER" : "TACTICAL AI";
+  const blackTag = opponent === "local" ? "LOCAL PLAYER" : opponent === "online" ? "REMOTE PLAYER" : "TACTICAL AI";
   const whiteTag = "LEVEL " + levelInfo().level + " / " + currentRank().name;
   const logTitle = actionLog.length ? actionLog.length + " EVENTS" : "AWAITING FIRST MOVE";
   return '<div class="match-topline"><div class="match-title"><div><div class="eyebrow">' + label + '</div><h1>' + (puzzleActive ? "ONE MOVE TO FINISH." : "MAKE YOUR MOVE.") + '</h1><p>' + (matchMode === "chaos" ? "THE BOARD IS THE SAME. THE RULES ARE NOT." : "EVERY SQUARE MATTERS. EVERY MOVE IS LEGAL.") + '</p></div></div><div class="match-controls"><button class="btn btn-secondary btn-small" data-action="flip-board">FLIP BOARD ↻</button><button class="btn btn-secondary btn-small" data-action="new-match">NEW MATCH</button><button class="btn btn-danger btn-small" data-action="resign" ' + (gameOver ? "disabled" : "") + '>RESIGN</button></div></div>' +
