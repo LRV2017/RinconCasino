@@ -18,13 +18,109 @@ function randomCode(){
   const bytes=new Uint8Array(8);crypto.getRandomValues(bytes);
   return Array.from(bytes,b=>CODE_CHARS[b%CODE_CHARS.length]).join("");
 }
+const GAMES=[
+  ["ttt","Tic-Tac-Toe","3×3 · first to three"],
+  ["connect4","Connect Four","7×6 · connect four"],
+  ["reversi","Reversi","8×8 · most discs wins"],
+  ["gomoku","Gomoku","15×15 · connect five"],
+  ["chess","Chess","standard chess · full legal moves"],
+  ["checkers","Checkers","8×8 · captures and kings"],
+  ["battleship","Battleship","10×10 · hidden fleets"],
+  ["mancala","Mancala (Kalah)","sowing · captures · extra turns"],
+  ["nim","Nim","four piles · take the last token"],
+  ["dots","Dots and Boxes","3×3 boxes · draw edges"]
+];
+export const ONLINE_ROOM_MODES=GAMES.map(game=>game[0]);
+export const isOnlineRoomGame=mode=>ONLINE_ROOM_MODES.includes(mode);
+const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let peerLoader;
+function loadPeer(){
+  if(window.Peer)return Promise.resolve(window.Peer);
+  if(!peerLoader)peerLoader=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");script.src=PEER_SCRIPT;script.async=true;
+    script.onload=()=>window.Peer?resolve(window.Peer):reject(new Error("PeerJS did not expose its browser API."));
+    script.onerror=()=>{peerLoader=null;reject(new Error("Could not load PeerJS. Check your internet connection."));};
+    document.head.appendChild(script);
+  });
+  return peerLoader;
+}
+function randomCode(){
+  const bytes=new Uint8Array(8);crypto.getRandomValues(bytes);
+  return Array.from(bytes,b=>CODE_CHARS[b%CODE_CHARS.length]).join("");
+}
+function randomFleet(){
+  const fleet=Array.from({length:10},()=>Array(10).fill(0));
+  [4,3,3,2].forEach((length,index)=>{
+    let placed=false,tries=0;
+    while(!placed&&tries++<1000){
+      const horizontal=Math.random()<.5,r=Math.floor(Math.random()*10),c=Math.floor(Math.random()*10),cells=[];
+      for(let i=0;i<length;i++){
+        const rr=r+(horizontal?0:i),cc=c+(horizontal?i:0);
+        if(rr>=10||cc>=10||fleet[rr][cc]){cells.length=0;break;}
+        cells.push([rr,cc]);
+      }
+      if(cells.length===length){cells.forEach(([rr,cc])=>fleet[rr][cc]=index+1);placed=true;}
+    }
+  });
+  return fleet;
+}
 export function createRoomBoard(mode){
   if(mode==="ttt")return {mode,board:Array(9).fill(0),turn:0,over:false,winner:null};
   if(mode==="connect4")return {mode,board:Array.from({length:6},()=>Array(7).fill(0)),turn:0,over:false,winner:null};
   if(mode==="gomoku")return {mode,board:Array.from({length:15},()=>Array(15).fill(0)),turn:0,over:false,winner:null};
-  const board=Array.from({length:8},()=>Array(8).fill(0));
-  board[3][3]=2;board[3][4]=1;board[4][3]=1;board[4][4]=2;
-  return {mode:"reversi",board,turn:0,over:false,winner:null,passes:0};
+  if(mode==="reversi"){
+    const board=Array.from({length:8},()=>Array(8).fill(0));
+    board[3][3]=2;board[3][4]=1;board[4][3]=1;board[4][4]=2;
+    return {mode,board,turn:0,over:false,winner:null,passes:0};
+  }
+  if(mode==="chess")return {mode,position:createOnlineChessPosition(),turn:0,over:false,winner:null};
+  if(mode==="checkers"){
+    const board=Array.from({length:8},()=>Array(8).fill(0));
+    for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2)board[r][c]=2;
+    for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2)board[r][c]=1;
+    return {mode,board,turn:0,over:false,winner:null,mustContinue:null};
+  }
+  if(mode==="battleship")return {mode,fleets:[randomFleet(),randomFleet()],shots:[[],[]],turn:0,over:false,winner:null,lastShot:null};
+  if(mode==="mancala")return {mode,pits:[4,4,4,4,4,4,0,4,4,4,4,4,4,0],turn:0,over:false,winner:null};
+  if(mode==="nim")return {mode,piles:[3,4,5,7],turn:0,over:false,winner:null};
+  if(mode==="dots")return {mode,h:Array.from({length:4},()=>Array(3).fill(0)),v:Array.from({length:3},()=>Array(4).fill(0)),boxes:Array.from({length:3},()=>Array(3).fill(0)),scores:[0,0],turn:0,over:false,winner:null};
+  throw new Error("Unsupported online game mode: "+mode);
+}
+function checkersMoves(state,player){
+  const board=state.board,moves=[],dirs=player===0?[-1]:[1];
+  const addFrom=(r,c)=>{
+    const piece=board[r][c],king=piece===3||piece===4,forward=king?[-1,1]:dirs;
+    for(const dr of forward)for(const dc of [-1,1]){
+      const rr=r+dr,cc=c+dc;
+      if(rr<0||rr>=8||cc<0||cc>=8)continue;
+      if(!board[rr][cc])moves.push({from:{r,c},to:{r:rr,c:cc},capture:null});
+      else if((player===0?board[rr][cc]===2||board[rr][cc]===4:board[rr][cc]===1||board[rr][cc]===3)){
+        const jr=rr+dr,jc=cc+dc;
+        if(jr>=0&&jr<8&&jc>=0&&jc<8&&!board[jr][jc])moves.push({from:{r,c},to:{r:jr,c:jc},capture:{r:rr,c:cc}});
+      }
+    }
+  };
+  if(state.mustContinue){const {r,c}=state.mustContinue;addFrom(r,c);}
+  else for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(board[r][c]&&((player===0&&(board[r][c]===1||board[r][c]===3))||(player===1&&(board[r][c]===2||board[r][c]===4))))addFrom(r,c);
+  const captures=moves.filter(move=>move.capture);return captures.length?captures:moves;
+}
+function finishMancala(state){
+  const side0=state.pits.slice(0,6).reduce((a,b)=>a+b,0),side1=state.pits.slice(7,13).reduce((a,b)=>a+b,0);
+  if(side0===0||side1===0){
+    for(let i=0;i<6;i++){state.pits[6]+=state.pits[i];state.pits[i]=0;}
+    for(let i=7;i<13;i++){state.pits[13]+=state.pits[i];state.pits[i]=0;}
+    state.over=true;state.winner=state.pits[6]===state.pits[13]?null:state.pits[6]>state.pits[13]?0:1;
+  }
+}
+function publicRoomState(state,player){
+  if(!state)return null;
+  if(state.mode!=="battleship")return JSON.parse(JSON.stringify(state));
+  return {
+    mode:"battleship",turn:state.turn,over:state.over,winner:state.winner,lastShot:state.lastShot,
+    ownFleet:state.fleets[player],
+    outgoingShots:state.shots[player],
+    incomingShots:state.shots[1-player]
+  };
 }
 const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
 const ALL_DIRECTIONS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
@@ -78,11 +174,88 @@ export function applyRoomMove(state,player,move){
   }else if(state.mode==="reversi"){
     const r=Number(move.r),c=Number(move.c),valid=reversiLegal(b,player+1).find(m=>m.r===r&&m.c===c);
     if(!valid)return null;b[r][c]=player+1;valid.flips.forEach(([rr,cc])=>b[rr][cc]=player+1);
-    next.turn=1-player;next.passes=0;
-    if(!reversiLegal(b,next.turn+1).length){
+    next.passes=0;const otherMoves=reversiLegal(b,2-player);
+    if(!otherMoves.length){
       if(!reversiLegal(b,player+1).length)finishReversi(next);
       else {next.turn=player;next.passes=1;}
+    }else next.turn=1-player;
+    return next;
+  }else if(state.mode==="chess"){
+    if((state.position.turn==="w"?0:1)!==player)return null;
+    const position=applyOnlineChessMove(state.position,move);
+    if(!position)return null;
+    next.position=position;
+    const result=getOnlineChessStatus(position);
+    next.over=result.done;next.winner=result.winner;next.turn=position.turn==="w"?0:1;next.status=result.text;
+    return next;
+  }else if(state.mode==="checkers"){
+    const from=move.from||{},to=move.to||{};
+    const valid=checkersMoves(state,player).find(m=>m.from.r===Number(from.r)&&m.from.c===Number(from.c)&&m.to.r===Number(to.r)&&m.to.c===Number(to.c));
+    if(!valid)return null;
+    const piece=b[valid.from.r][valid.from.c];b[valid.from.r][valid.from.c]=0;b[valid.to.r][valid.to.c]=piece;
+    if(valid.capture)b[valid.capture.r][valid.capture.c]=0;
+    if(player===0&&valid.to.r===0&&piece===1)b[valid.to.r][valid.to.c]=3;
+    if(player===1&&valid.to.r===7&&piece===2)b[valid.to.r][valid.to.c]=4;
+    const more=valid.capture?checkersMoves({...next,mustContinue:{...valid.to}},player):[];
+    const opponentPieces=b.flat().filter(piece=>player===0?(piece===2||piece===4):(piece===1||piece===3)).length;
+    if(!opponentPieces||!checkersMoves({...next,turn:1-player,mustContinue:null},1-player).length){next.over=true;next.winner=player;next.mustContinue=null;return next;}
+    if(more.some(m=>m.capture)){next.turn=player;next.mustContinue={...valid.to};}
+    else {next.turn=1-player;next.mustContinue=null;}
+    return next;
+  }else if(state.mode==="battleship"){
+    const r=Number(move.r),c=Number(move.c);
+    if(!Number.isInteger(r)||!Number.isInteger(c)||r<0||r>=10||c<0||c>=10||state.shots[player].some(shot=>shot.r===r&&shot.c===c))return null;
+    const hit=state.fleets[1-player][r][c]>0;
+    next.shots[player].push({r,c,hit});next.lastShot={player,r,c,hit};
+    const remaining=next.fleets[1-player].flat().filter(id=>id>0).length-next.shots[player].filter(shot=>shot.hit).length;
+    if(remaining===0){next.over=true;next.winner=player;}
+    else next.turn=1-player;
+    return next;
+  }else if(state.mode==="mancala"){
+    const pit=Number(move.pit),own=player===0?pit>=0&&pit<=5:pit>=7&&pit<=12;
+    if(!Number.isInteger(pit)||!own||!next.pits[pit])return null;
+    let seeds=next.pits[pit];next.pits[pit]=0;let index=pit;
+    while(seeds>0){
+      index=(index+1)%14;
+      if(player===0&&index===13||player===1&&index===6)continue;
+      next.pits[index]++;seeds--;
     }
+    const ownPit=player===0?index>=0&&index<=5:index>=7&&index<=12;
+    if(ownPit&&next.pits[index]===1){
+      const opposite=12-index;
+      if(next.pits[opposite]>0){next.pits[player===0?6:13]+=next.pits[opposite]+1;next.pits[opposite]=0;next.pits[index]=0;}
+    }
+    const extra=index===(player===0?6:13);
+    finishMancala(next);
+    if(!next.over)next.turn=extra?player:1-player;
+    return next;
+  }else if(state.mode==="nim"){
+    const pile=Number(move.pile),count=Number(move.count);
+    if(!Number.isInteger(pile)||pile<0||pile>=next.piles.length||!Number.isInteger(count)||count<1||count>next.piles[pile])return null;
+    next.piles[pile]-=count;
+    if(next.piles.every(value=>value===0)){next.over=true;next.winner=player;}
+    else next.turn=1-player;
+    return next;
+  }else if(state.mode==="dots"){
+    const type=String(move.type),r=Number(move.r),c=Number(move.c);
+    if(type==="h"){
+      if(!Number.isInteger(r)||r<0||r>=4||!Number.isInteger(c)||c<0||c>=3||next.h[r][c])return null;
+      next.h[r][c]=player+1;
+    }else if(type==="v"){
+      if(!Number.isInteger(r)||r<0||r>=3||!Number.isInteger(c)||c<0||c>=4||next.v[r][c])return null;
+      next.v[r][c]=player+1;
+    }else return null;
+    let scored=0;
+    for(let rr=0;rr<3;rr++)for(let cc=0;cc<3;cc++){
+      if(next.boxes[rr][cc])continue;
+      if(next.h[rr][cc]&&next.h[rr+1][cc]&&next.v[rr][cc]&&next.v[rr][cc+1]){
+        next.boxes[rr][cc]=player+1;scored++;
+      }
+    }
+    next.scores[player]+=scored;
+    if(next.boxes.flat().every(Boolean)){
+      next.over=true;next.winner=next.scores[0]===next.scores[1]?null:next.scores[0]>next.scores[1]?0:1;
+    }else next.turn=scored?player:1-player;
     return next;
   }else return null;
   if(!next.over)next.turn=1-player;
