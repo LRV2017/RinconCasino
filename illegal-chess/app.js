@@ -1,6 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 import { POWER_CATALOG, POWER_COUNT, POWER_UNIVERSES, POWER_ARCHETYPES, POWER_MECHANICS, getPowerById, rollPowerChoices } from "./power-bank.js";
 import { PeerRoom } from "./peer-room.js";
+import { cloudConfigured, cloudGetSession, cloudOnAuthStateChange, cloudSignUp, cloudSignIn, cloudSignOut, cloudSendPasswordReset, cloudLoadSave, cloudWriteSave } from "./cloud.js";
 
 const PROFILE_KEY = "rogueboard.profile.v1";
 const PUZZLE_FEN = "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1";
@@ -113,10 +114,16 @@ let draftRerolls = 0;
 let net = { role: null, connected: false, phase: "idle", roomCode: "", status: "Create a room or join a friend.", remoteName: "OPPONENT", myPower: null, remotePower: null };
 let peerRoom = null;
 let handlingRemote = false;
+let cloudState = { user: null, status: cloudConfigured ? "CONNECTING TO CLOUD…" : "CLOUD NOT CONFIGURED", sync: "local", lastSync: null, error: "", ready: false };
+let cloudConflict = null;
+let cloudSaveTimer = null;
+let cloudHydratingUserId = null;
+let cloudAuthSubscription = null;
 
 function saveProfile() {
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { toast("Could not save this profile in your browser.", "error"); }
   syncChrome();
+  scheduleCloudSave();
 }
 function levelInfo() {
   const level = Math.floor(profile.xp / 400) + 1;
@@ -145,8 +152,12 @@ function syncChrome() {
   $("#side-rank").textContent = rank + " · LVL " + levelInfo().level;
   $("#top-coins").textContent = profile.credits.toLocaleString();
   $("#top-avatar").textContent = name.slice(0, 1);
+  const saveStatus = $("#save-status");
+  const saveDot = $("#save-status-dot");
+  if (saveStatus) saveStatus.textContent = cloudState.user ? (cloudState.sync === "saving" ? "SYNCING CLOUD SAVE…" : cloudState.sync === "error" ? "CLOUD SYNC ISSUE" : "CLOUD SAVE CONNECTED") : "LOCAL PROFILE SAVED";
+  if (saveDot) saveDot.style.background = cloudState.user && cloudState.sync === "saved" ? "#d8ff3f" : cloudState.user && cloudState.sync === "error" ? "#ff8758" : "#84918b";
   $$(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.view === currentView));
-  const titles = { home: "THE ARENA", play: "CHOOSE YOUR FIGHT", practice: "TRAINING LAB", armory: "THE ARMORY", quests: "DAILY CONTRACTS", rank: "SEASON 01", profile: "PLAYER PROFILE", match: "LIVE MATCH", online: "PEER-TO-PEER ROOMS", draft: "POWER ROLL / SELECT ONE" };
+  const titles = { home: "THE ARENA", play: "CHOOSE YOUR FIGHT", practice: "TRAINING LAB", armory: "THE ARMORY", quests: "DAILY CONTRACTS", rank: "SEASON 01", profile: "PLAYER PROFILE", account: "ACCOUNT & CLOUD SAVES", match: "LIVE MATCH", online: "PEER-TO-PEER ROOMS", draft: "POWER ROLL / SELECT ONE" };
   $("#top-section").textContent = titles[currentView] || "THE ARENA";
 }
 function toast(message, type = "success") {
@@ -412,7 +423,8 @@ function render() {
   const view = $("#view");
   if (!view) return;
   syncChrome();
-  if (currentView === "online") {
+  if (currentView === "account") view.innerHTML = renderAccount();
+  else if (currentView === "online") {
     view.innerHTML = renderOnline();
     $("#top-section").textContent = "PEER-TO-PEER ROOMS";
   } else if (currentView === "draft") {
@@ -1256,7 +1268,14 @@ function startFromSetup() {
   }
 }
 function handleAction(action, element) {
-  if (action === "open-online") setView("online");
+  if (action === "account-signup") accountCreate();
+  else if (action === "account-signin") accountLogin();
+  else if (action === "account-signout") accountLogout();
+  else if (action === "account-reset") accountResetPassword();
+  else if (action === "cloud-sync") cloudSaveNow(true);
+  else if (action === "use-cloud-save") useCloudConflict();
+  else if (action === "use-device-save") useLocalConflict();
+  else if (action === "open-online") setView("online");
   else if (action === "create-room") createOnlineRoom();
   else if (action === "join-room") joinOnlineRoom();
   else if (action === "copy-room") copyRoomCode();
