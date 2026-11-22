@@ -245,14 +245,55 @@ export function applyRoomMove(state,player,move){
   if(!next.over)next.turn=1-player;
   return next;
 }
-function boardHTML(s,player){
+function boardHTML(s,player,selectedCell=null){
   if(!s)return "";
   const myTurn=!s.over&&s.turn===player,b=s.board;
   if(s.mode==="ttt")return '<div class="p2p-board p2p-ttt">'+b.map((v,i)=>'<button data-cell="'+i+'" '+(!myTurn||v?"disabled":"")+'>'+(v===1?"✕":v===2?"◯":"")+'</button>').join("")+'</div>';
   if(s.mode==="connect4")return '<div class="p2p-connect-wrap"><div class="p2p-connect-cols">'+Array.from({length:7},(_,c)=>'<button data-col="'+c+'" '+(!myTurn||b[0][c]?"disabled":"")+'>'+String.fromCharCode(65+c)+'</button>').join("")+'</div><div class="p2p-board p2p-connect">'+b.flat().map(v=>'<span class="p2p-disc '+(v===1?"one":v===2?"two":"")+'"></span>').join("")+'</div></div>';
   if(s.mode==="gomoku")return '<div class="p2p-gomoku-scroll"><div class="p2p-board p2p-gomoku">'+b.flatMap((row,r)=>row.map((v,c)=>'<button data-cell="'+r+','+c+'" '+(!myTurn||v?"disabled":"")+'>'+(v===1?"●":v===2?"○":"")+'</button>')).join("")+'</div></div>';
-  const legal=reversiLegal(b,player+1);
-  return '<div class="p2p-board p2p-reversi">'+b.flatMap((row,r)=>row.map((v,c)=>'<button data-cell="'+r+','+c+'" '+(!myTurn||v||!legal.some(m=>m.r===r&&m.c===c)?"disabled":"")+'>'+(v===1?"●":v===2?"○":"")+'</button>')).join("")+'</div>';
+  if(s.mode==="reversi"){
+    const legal=reversiLegal(b,player+1);
+    return '<div class="p2p-board p2p-reversi">'+b.flatMap((row,r)=>row.map((v,c)=>'<button data-cell="'+r+','+c+'" '+(!myTurn||v||!legal.some(m=>m.r===r&&m.c===c)?"disabled":"")+'>'+(v===1?"●":v===2?"○":"")+'</button>')).join("")+'</div>';
+  }
+  if(s.mode==="chess"||s.mode==="checkers"){
+    const board=s.mode==="chess"?s.position.board:s.board;
+    const moves=s.mode==="chess"?getOnlineChessMoves(s.position):checkersMoves(s,player);
+    const targets=moves.filter(m=>m.from&&m.from.r+","+m.from.c===selectedCell).map(m=>m.to.r+","+m.to.c);
+    const order=player===0?[0,1,2,3,4,5,6,7]:[7,6,5,4,3,2,1,0];
+    const glyph={"K":"♔","Q":"♕","R":"♖","B":"♗","N":"♘","P":"♙","k":"♚","q":"♛","r":"♜","b":"♝","n":"♞","p":"♟"};
+    return '<div class="p2p-chess-wrap"><div class="p2p-chess-grid '+(s.mode==="checkers"?"checkers":"")+'">'+order.map(r=>order.map(c=>{
+      const piece=board[r][c],key=r+","+c,owned=s.mode==="chess"?(piece&&(player===0?piece===piece.toUpperCase():piece===piece.toLowerCase())):(player===0?(piece===1||piece===3):(piece===2||piece===4));
+      let mark="";
+      if(s.mode==="chess")mark=glyph[piece]||"";
+      else mark=piece===1?"●":piece===2?"○":piece===3?"♔":piece===4?"♕":"";
+      return '<button class="p2p-chess-square '+(((r+c)%2)?"dark":"light")+(selectedCell===key?" selected":"")+(targets.includes(key)?" target":"")+'" data-cell="'+key+'" '+(!myTurn||(!owned&&!targets.includes(key))?"disabled":"")+'><span>'+mark+'</span></button>';
+    }).join("")).join("")+'</div><div class="tiny-note">'+(s.mode==="chess"?(s.status||((s.position.turn==="w"?"White":"Black")+" to move")):"Red and black checkers · captures are mandatory")+'</div></div>';
+  }
+  if(s.mode==="battleship"){
+    const shot=(list,r,c)=>list.find(value=>value.r===r&&value.c===c);
+    const own=Array.from({length:10},(_,r)=>Array.from({length:10},(_,c)=>{
+      const incoming=shot(s.incomingShots,r,c),ship=s.ownFleet[r][c];
+      return '<span class="p2p-ship-cell '+(ship?"ship":"")+(incoming?(incoming.hit?" hit":" miss"):"")+'">'+(incoming?(incoming.hit?"✹":"·"):ship?"▰":"")+'</span>';
+    }).join("")).join("");
+    const enemy=Array.from({length:10},(_,r)=>Array.from({length:10},(_,c)=>{
+      const previous=shot(s.outgoingShots,r,c);
+      return '<button class="p2p-ship-cell '+(previous?(previous.hit?" hit":" miss"):"")+'" data-shot="'+r+','+c+'" '+(!myTurn||previous?"disabled":"")+'>'+(previous?(previous.hit?"✹":"·"):"")+'</button>';
+    }).join("")).join("");
+    return '<div class="p2p-fleet-pair"><section><small>YOUR FLEET</small><div class="p2p-fleet-grid">'+own+'</div></section><section><small>ENEMY WATERS</small><div class="p2p-fleet-grid">'+enemy+'</div></section></div>';
+  }
+  if(s.mode==="mancala"){
+    const pit=(i)=>'<button class="p2p-mancala-pit" data-pit="'+i+'" '+(!myTurn||(player===0?(i<0||i>5):(i<7||i>12))||!s.pits[i]?"disabled":"")+'><small>'+s.pits[i]+'</small></button>';
+    return '<div class="p2p-mancala"><div class="p2p-store">'+s.pits[13]+'</div><div class="p2p-mancala-main"><div class="p2p-mancala-row">'+[12,11,10,9,8,7].map(pit).join("")+'</div><div class="p2p-mancala-row">'+[0,1,2,3,4,5].map(pit).join("")+'</div></div><div class="p2p-store">'+s.pits[6]+'</div></div>';
+  }
+  if(s.mode==="nim"){
+    return '<div class="p2p-nim-piles">'+s.piles.map((count,pile)=>'<section><small>PILE '+(pile+1)+'</small><strong>'+count+' stones</strong><div>'+Array.from({length:Math.min(3,count)},(_,i)=>'<button data-pile="'+pile+'" data-count="'+(i+1)+'" '+(!myTurn?"disabled":"")+'>Take '+(i+1)+'</button>').join("")+'</div></section>').join("")+'</div>';
+  }
+  if(s.mode==="dots"){
+    const hrow=r=>'<div class="p2p-dots-row">'+Array.from({length:4},(_,c)=>'<span class="p2p-dot">●</span>'+(c<3?'<button class="p2p-dot-edge horizontal '+(s.h[r][c]?"p"+s.h[r][c]:"")+'" data-dot="h,'+r+','+c+'" '+(!myTurn||s.h[r][c]?"disabled":"")+'></button>':"")).join("")+'</div>';
+    const vrow=r=>'<div class="p2p-dots-row">'+Array.from({length:4},(_,c)=>'<button class="p2p-dot-edge vertical '+(s.v[r][c]?"p"+s.v[r][c]:"")+'" data-dot="v,'+r+','+c+'" '+(!myTurn||s.v[r][c]?"disabled":"")+'></button>'+(c<3?'<span class="p2p-dot-gap">'+(s.boxes[r][c]?(s.boxes[r][c]===1?"✕":"○"):"")+'</span>':"")).join("")+'</div>';
+    return '<div class="p2p-dots">'+[hrow(0),vrow(0),hrow(1),vrow(1),hrow(2),vrow(2),hrow(3)].join("")+'</div><div class="tiny-note">Score · '+s.scores[0]+' — '+s.scores[1]+'</div>';
+  }
+  return "";
 }
 export function mountMultiplayerRooms(root,{defaultName=""}={}){
   let peer=null,conn=null,isHost=false,roomCode="",name=defaultName||"Player",opponent="Opponent",mode="ttt",state=null,started=false,disposed=false,chat=[];
