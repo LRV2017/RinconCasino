@@ -11,33 +11,46 @@ const universes = [
   "Percy Jackson", "The Lord of the Rings", "The Matrix", "Tron", "Sailor Moon"
 ];
 
+const signaturePowers = [
+  "Kamehameha", "Rasenshuriken", "Gum-Gum Gatling", "Hollow Purple", "One For All",
+  "Hinokami Kagura", "Getsuga Tensho", "The World", "Jajanken", "Titan Shift",
+  "Thunderbolt", "Chaos Control", "Fire Flower", "Triforce Burst", "Morph Ball",
+  "Star Beam", "Ender Pearl", "Terra Beam", "Gaster Blaster", "Phantom Lure",
+  "Energy Sword", "BFG Blast", "Golden Gun", "Spartan Rage", "Comet Azur",
+  "Soul Spear", "Fus Ro Dah", "Sandevistan", "Quen Sign", "Limit Break",
+  "Keyblade Release", "Force Push", "Repulsor Blast", "Speed Force Dash", "Web Snare",
+  "Optic Blast", "Lightning Generation", "Alien X", "Energon Pulse", "Morphin Strike",
+  "Turtle Power", "Viltrumite Charge", "Compound V Surge", "Eleven's Telekinesis", "Expelliarmus",
+  "Riptide Strike", "Ring of Power", "Bullet Time", "Identity Disc", "Moon Tiara Action"
+];
+
 const techniques = [
-  { name:"Energy Wave", effectId:"rocket", icon:"☄", cost:3, range:2, rarity:"common", description:"Fire a burst that removes an enemy piece within two squares of one of your pieces." },
-  { name:"Overcharged Blast", effectId:"rocket", icon:"💥", cost:4, range:3, rarity:"rare", description:"A longer-range blast removes an enemy piece within three squares of your forces." },
-  { name:"Warp Step", effectId:"teleport", icon:"🌀", cost:3, rarity:"common", description:"Warp one of your non-king pieces to an empty square or remove an enemy piece by taking its square." },
-  { name:"Rift Walk", effectId:"teleport", icon:"🪐", cost:4, rarity:"epic", description:"Teleport one non-king piece anywhere on the board, including an occupied enemy square." },
-  { name:"Frost Bind", effectId:"freeze", icon:"❄", cost:2, rarity:"common", description:"Freeze one enemy non-king piece so it cannot move during its next turn." },
-  { name:"Absolute Zero", effectId:"freeze", icon:"🧊", cost:4, rarity:"legendary", description:"Freeze one enemy non-king piece for the next two enemy turns." },
-  { name:"Aegis Guard", effectId:"shield", icon:"🛡", cost:2, rarity:"common", description:"Protect one of your non-king pieces from its next capture." },
-  { name:"Perfect Barrier", effectId:"shield", icon:"🔰", cost:4, rarity:"epic", description:"Protect one friendly non-king piece from its next two capture attempts." },
+  { name:"Energy Wave", effectId:"rocket", icon:"☄", cost:3, range:2, rarity:"common", description:"Blast an enemy piece within range of one of your pieces." },
+  { name:"Shadow Echo", effectId:"clone", icon:"👥", cost:4, rarity:"epic", description:"Create a copy of one friendly non-king piece on an empty square." },
+  { name:"Warp Step", effectId:"teleport", icon:"🌀", cost:3, rarity:"common", description:"Warp a friendly non-king piece to an empty square or take an unshielded enemy square." },
+  { name:"Corruption Touch", effectId:"convert", icon:"🟣", cost:4, rarity:"epic", description:"Turn one enemy pawn into a pawn on your side." },
+  { name:"Frost Bind", effectId:"freeze", icon:"❄", cost:2, rarity:"common", description:"Freeze one enemy non-king piece for its next turn." },
+  { name:"Time Stop", effectId:"timeStop", icon:"⏸", cost:5, rarity:"legendary", description:"Freeze every enemy non-king piece for one enemy turn." },
+  { name:"Aegis Guard", effectId:"shield", icon:"🛡", cost:2, rarity:"common", description:"Protect one friendly non-king piece from its next capture." },
+  { name:"Fortress Field", effectId:"fortify", icon:"🏰", cost:4, rarity:"epic", description:"Shield a friendly piece and adjacent friendly pieces from one capture each." },
   { name:"Piercing Shot", effectId:"sniper", icon:"⌖", cost:4, rarity:"rare", description:"Remove an enemy piece on a clear rook, bishop, or queen line." },
-  { name:"Longshot", effectId:"sniper", icon:"🎯", cost:3, rarity:"common", description:"A precision shot removes an enemy piece visible along a clear line." },
+  { name:"Energy Drain", effectId:"drain", icon:"🧲", cost:3, rarity:"rare", description:"Steal up to two energy from your opponent." },
   { name:"Mirror Exchange", effectId:"swap", icon:"⇄", cost:3, rarity:"rare", description:"Swap the positions of two friendly non-king pieces." },
-  { name:"Quantum Trade", effectId:"swap", icon:"⚛", cost:4, rarity:"epic", description:"Exchange two friendly non-king pieces across the board." },
+  { name:"Enemy Exchange", effectId:"exchange", icon:"⚛", cost:5, rarity:"legendary", description:"Trade the positions of one friendly and one enemy non-king piece." },
   { name:"Time Surge", effectId:"haste", icon:"⏱", cost:4, rarity:"rare", description:"Take two consecutive normal moves before the opponent can respond." },
-  { name:"Overdrive", effectId:"haste", icon:"⚡", cost:3, rarity:"common", description:"Gain a second move immediately after your next normal move." },
-  { name:"Comet Barrage", effectId:"rocket", icon:"🌠", cost:5, range:3, rarity:"legendary", description:"Launch a devastating long-range strike against one enemy piece." },
-  { name:"Phase Shift", effectId:"teleport", icon:"🫥", cost:2, rarity:"rare", description:"Phase one friendly non-king piece to any empty square." },
-  { name:"Cryo Lock", effectId:"freeze", icon:"🧬", cost:3, rarity:"epic", description:"Temporarily lock one enemy non-king piece in place." },
-  { name:"Fortress Stance", effectId:"shield", icon:"🏰", cost:3, rarity:"rare", description:"Surround a friendly piece with a one-hit defensive field." },
-  { name:"Rail Lance", effectId:"sniper", icon:"🔭", cost:5, rarity:"legendary", description:"Fire a high-energy shot through a clear rank, file, or diagonal." },
-  { name:"Twin Souls", effectId:"swap", icon:"♊", cost:2, rarity:"common", description:"Switch two friendly non-king pieces to rewrite the position." }
+  { name:"Overdrive", effectId:"surge", icon:"⚡", cost:2, rarity:"common", description:"Refill three energy before ending your turn." },
+  { name:"Summoning Spark", effectId:"summon", icon:"✨", cost:4, rarity:"epic", description:"Summon an extra pawn onto an empty square on your pawn rank." },
+  { name:"Force Pulse", effectId:"push", icon:"💨", cost:3, rarity:"rare", description:"Push an enemy non-king piece one square away from your nearest piece." },
+  { name:"Power Seal", effectId:"silence", icon:"🔇", cost:4, rarity:"epic", description:"Suppress the opponent's power until they complete their next move." },
+  { name:"Ascension", effectId:"promote", icon:"👑", cost:4, rarity:"legendary", description:"Transform one friendly pawn into a queen, wherever it stands." },
+  { name:"Gravity Prison", effectId:"prison", icon:"⛓", cost:4, rarity:"epic", description:"Freeze every enemy non-king piece on the chosen rank for one turn." },
+  { name:"Gravity Pull", effectId:"pull", icon:"🪝", cost:3, rarity:"rare", description:"Pull an enemy non-king piece one square toward your nearest piece." }
 ];
 
 export const POWER_CATALOG = Object.freeze(universes.flatMap((universe, universeIndex) =>
   techniques.map((technique, techniqueIndex) => ({
     id: "rb-" + String(universeIndex * techniques.length + techniqueIndex + 1).padStart(4, "0"),
-    name: universe + " · " + technique.name,
+    name: universe + " · " + signaturePowers[universeIndex] + " / " + technique.name,
     universe,
     technique: technique.name,
     effectId: technique.effectId,
