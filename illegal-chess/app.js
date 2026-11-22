@@ -271,6 +271,76 @@ function renderPractice() {
     '</div>';
 }
 
+
+function renderPieceSkins() {
+  return PIECE_SKINS.map(item => {
+    const owned = profile.unlockedPieces.includes(item.id);
+    const equipped = profile.equippedPieces === item.id;
+    const action = equipped ? '<button class="btn btn-secondary btn-small" disabled>EQUIPPED</button>' :
+      owned ? '<button class="btn btn-primary btn-small" data-action="equip-piece" data-piece="' + item.id + '">EQUIP</button>' :
+      '<button class="btn btn-secondary btn-small" data-action="buy-piece" data-piece="' + item.id + '">UNLOCK</button>';
+    return '<article class="skin-card"><div class="skin-preview"><div class="piece-set-preview" style="--piece-white:' + item.white + ';--piece-black:' + item.black + '"><span>♔♕♖♘</span><span>♚♛♜♞</span></div></div><div class="skin-info"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3>' + item.name + '</h3><span class="skin-price">' + (item.price ? item.price + " ◈" : "FREE") + '</span></div><p>' + item.desc + '</p><div class="skin-foot"><span style="font:8px var(--mono);color:' + (owned ? "var(--lime)" : "var(--muted)") + '">' + (owned ? "OWNED" : "LOCKED") + '</span>' + action + '</div></div></article>';
+  }).join("");
+}
+function renderEmoteStore() {
+  return EMOTES.map(item => {
+    const owned = profile.unlockedEmotes.includes(item.id);
+    const equipped = profile.equippedEmote === item.id;
+    const action = equipped ? '<button class="btn btn-secondary btn-small" disabled>EQUIPPED</button>' :
+      owned ? '<button class="btn btn-primary btn-small" data-action="equip-emote" data-emote-id="' + item.id + '">EQUIP</button>' :
+      '<button class="btn btn-secondary btn-small" data-action="buy-emote" data-emote-id="' + item.id + '">UNLOCK</button>';
+    return '<article class="emote-store-card"><div class="emote-store-icon">' + item.icon + '</div><div class="emote-store-meta"><strong>' + item.name + '</strong><small>' + (owned ? "OWNED" : item.price + " SHARDS") + '</small></div>' + action + '</article>';
+  }).join("");
+}
+function buyPieceSkin(id) {
+  const item = PIECE_SKINS.find(entry => entry.id === id);
+  if (!item || profile.unlockedPieces.includes(id)) return;
+  if (profile.credits < item.price) { toast("Not enough shards to unlock that piece set.", "error"); return; }
+  profile.credits -= item.price;
+  profile.unlockedPieces.push(id);
+  saveProfile();
+  render();
+  toast(item.name + " unlocked.");
+}
+function equipPieceSkin(id) {
+  if (!profile.unlockedPieces.includes(id)) return;
+  profile.equippedPieces = id;
+  saveProfile();
+  render();
+  toast("Piece set equipped.");
+}
+function buyEmote(id) {
+  const item = EMOTES.find(entry => entry.id === id);
+  if (!item || profile.unlockedEmotes.includes(id)) return;
+  if (profile.credits < item.price) { toast("Not enough shards to unlock that emote.", "error"); return; }
+  profile.credits -= item.price;
+  profile.unlockedEmotes.push(id);
+  saveProfile();
+  render();
+  toast(item.name + " unlocked.");
+}
+function equipEmote(id) {
+  if (!profile.unlockedEmotes.includes(id)) return;
+  profile.equippedEmote = id;
+  saveProfile();
+  render();
+  toast("Quick emote equipped.");
+}
+function renderEmoteDeck() {
+  const owned = EMOTES.filter(item => profile.unlockedEmotes.includes(item.id));
+  if (!owned.length) return '<p class="mode-note">Unlock an emote in the Armory to use match reactions.</p>';
+  return owned.map(item => '<button class="match-emote ' + (profile.equippedEmote === item.id ? "equipped" : "") + '" data-emote="' + item.id + '" title="' + item.name + '"><span>' + item.icon + '</span><small>' + item.name + '</small></button>').join("");
+}
+function sendMatchEmote(id) {
+  const item = EMOTES.find(entry => entry.id === id);
+  if (!item || !profile.unlockedEmotes.includes(id)) return;
+  if (opponent === "online") {
+    if (!net.connected || !peerRoom) { toast("Your peer connection is not active.", "error"); return; }
+    peerRoom.send({ type: "emote", id: item.id, name: profile.name });
+  }
+  toast((profile.name || "PLAYER") + " " + item.icon + " " + item.name);
+}
+
 function renderArmory() {
   const items = SKINS.map(skin => {
     const owned = profile.unlockedSkins.includes(skin.id);
