@@ -1,41 +1,52 @@
 # Peer-to-peer rooms
 
-Rincon's online mode uses WebRTC data channels through PeerJS. It does not require a dedicated RinconCasino game server or a persistent central room database.
+Rincon's private online rooms use PeerJS to establish WebRTC data channels. RinconCasino does not run a dedicated game server or persistent room database for these matches.
 
 ## How rooms work
 
-1. The host creates a room. Rincon generates an eight-character random code and registers a PeerJS peer ID.
-2. The guest enters the code. PeerJS Cloud brokers the initial WebRTC signaling handshake.
-3. Once connected, game moves and room chat flow over the WebRTC data channel. WebRTC data channels are encrypted in transit by the platform's DTLS layer.
-4. The host is authoritative for the board state and validates every incoming move before broadcasting an updated snapshot.
+1. The host chooses a supported game and creates a private room. Rincon generates an eight-character invite code and registers a PeerJS peer ID.
+2. The guest enters the invite code. PeerJS Cloud brokers the initial WebRTC signalling handshake.
+3. After the connection is established, gameplay messages travel over a reliable WebRTC data channel. The host validates each move and sends the resulting game state.
+4. The host browser remains authoritative for the game reducer. A guest sends a move request, not a replacement board or a claimed winner.
 
-PeerJS Cloud handles signaling only. Data normally flows directly between browsers; some NAT/firewall combinations may require a TURN relay. No central matchmaking list is provided. The host must keep the browser tab open. A room supports one host and one guest.
+PeerJS Cloud handles signalling, not the game itself. Game traffic normally travels directly between browsers. Some NAT/firewall combinations require a TURN relay, in which case traffic may be relayed. The host must keep the page open. Current rooms support one host and one guest.
 
 ## Supported online games
+
+These ten game modes have online, two-player room reducers:
 
 - Tic-Tac-Toe
 - Connect Four
 - Reversi
 - Gomoku
+- Chess (legal moves, check/checkmate and stalemate through the shared chess rules module)
+- Checkers (mandatory captures, crowning and chained jumps)
+- Battleship (random fleets, alternating shots and player-specific state snapshots that do not expose the opposing fleet)
+- Mancala / Kalah (sowing, captures, store landing extra turns and end-game sweep)
+- Nim (four piles, one-pile removal and last-token winner)
+- Dots and Boxes (edge claims, box scoring and extra turns after completing a box)
 
-Chess, poker, dice contests and casino tables still use their existing local game modes. They are not yet network-enabled.
+Press **ONLINE** on one of these game cards to open the room lobby with that game preselected, or use **Online rooms** in the header to choose a game from the full list.
+
+## Games not yet network-enabled
+
+These catalog games still use their existing local bot tables and need their own multiplayer state reducers before they can safely run over P2P:
+
+- Texas Hold'em and Pot-Limit Omaha
+- Liar's Dice, Cee-lo, Bunco, Ship-Captain-Crew, Pig and Dice Poker
+- 75-Ball Bingo
+- Russian Roulette and Demon's Deal
+
+Single-player casino games and puzzle modes remain local by design. The room layer is shared, but each game's rules and hidden information still require a dedicated validated reducer; simply broadcasting UI clicks would not make a safe or fair multiplayer game.
 
 ## Security and trust boundary
 
-The host checks turn ownership, coordinates, occupied squares and each game's legal-move rules. The guest sends a move request, not a claimed winner or a replacement board state. This is suitable for casual board matches, but the host still controls the room and could modify its own browser. Do not use this architecture for real-money play, valuable balances or competitive prize games.
+The host validates turn ownership, board coordinates, piece movement, capture rules and each supported game's win conditions before broadcasting state. For Battleship, each peer receives only their own fleet, their outgoing shots and incoming shots against their own fleet; the other player's unhit fleet positions are not included in the snapshot.
 
-Room codes are invite secrets, not user accounts. Share them only with the intended guest. Closing the host tab closes the room. Reconnect and host migration are not implemented yet.
+This is appropriate for casual friendly matches only. The host controls the authoritative game process and could modify its own browser. Do not use this architecture for real-money play, valuable balances or competitive prize games.
 
-## GitHub save account
+Room codes are invite secrets, not accounts. Share them only with the intended guest. Closing the host tab closes the room. Public matchmaking, room discovery, moderation, reconnect grace periods and host migration are not implemented. A TURN relay may be required on restrictive networks.
 
-The static browser app does not embed an OAuth client secret. The player profile currently uses a user-created classic personal access token with only `gist` and `read:user` scopes. The token is kept in the current tab's `sessionStorage`; it is never sent to the multiplayer peer and never written into the save file.
+## Player data
 
-Player data is stored in a GitHub **secret (unlisted) Gist**. GitHub explicitly warns that secret Gists are not private: anyone who obtains the Gist URL can read them. The save contains fictional-credit balance, favorites, recent results and aggregate stats only—never credentials or personal secrets.
-
-## Known limitations
-
-- Only two players per room.
-- Four board-game modes are playable online.
-- No public room browser, player search, moderation, reconnect grace period or host migration.
-- PeerJS Cloud signaling and network access are required. Direct P2P may fail on some networks without TURN.
-- Game outcomes are suitable for casual play only; the host controls the authoritative state.
+The current room transport does not send GitHub save tokens or player save data to the peer. Multiplayer rooms are temporary sessions; game outcomes are not currently written to account profiles or cloud saves.
