@@ -301,7 +301,7 @@ function renderProfile() {
   return heading("PLAYER / IDENTITY", "YOUR FILE.", "Your profile, match record, unlocks, and achievements. Everything here is stored locally in your browser.") +
     '<div class="profile-layout"><section class="panel profile-card"><div class="profile-large-avatar">' + escapeHTML((profile.name || "R").slice(0, 1).toUpperCase()) + '</div><h2>' + escapeHTML(profile.name || "ROOKIE") + '</h2><p>' + rank.name + ' DIVISION · PLAYER LEVEL ' + level.level + '</p><div class="profile-xp"><div><span>EXPERIENCE POINTS</span><span>' + level.current + ' / ' + level.next + '</span></div><div class="xp-track"><i style="width:' + level.percent + '%"></i></div></div><div class="profile-edit"><input class="text-input" id="profile-name-input" maxlength="16" value="' + escapeHTML(profile.name) + '" aria-label="Player callsign"><button class="btn btn-primary btn-small" data-action="save-name">SAVE</button></div><button class="text-button" style="margin-top:14px" data-action="reset-profile">RESET LOCAL PROFILE</button></section>' +
     '<section class="panel"><div class="panel-heading"><h3>CAREER SNAPSHOT</h3><small>ALL TIME</small></div><div class="stats-row"><div class="stat-card"><div class="stat-top">MATCHES</div><div class="stat-value">' + profile.matches + '</div></div><div class="stat-card"><div class="stat-top">WINS</div><div class="stat-value">' + profile.wins + '</div></div><div class="stat-card"><div class="stat-top">LOSSES</div><div class="stat-value">' + profile.losses + '</div></div><div class="stat-card"><div class="stat-top">RATING</div><div class="stat-value">' + profile.rating + '</div></div></div><div class="panel-heading" style="margin-top:22px"><h3>ACHIEVEMENTS</h3><small>' + achievements.filter(item => item.done).length + ' / ' + achievements.length + ' UNLOCKED</small></div><div class="achievement-grid">' + achievements.map(item => '<div class="achievement" style="opacity:' + (item.done ? "1" : ".48") + '"><span class="achievement-icon">' + item.icon + '</span><div><strong>' + item.title + '</strong><small>' + item.desc + '</small></div></div>').join("") + '</div></section></div>' +
-    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL-FIRST</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">This first release does not require an account. Your name, rating, shards, match totals, quests, and unlocked cosmetics are stored in this browser local storage. Clearing browser data removes this local profile. Peer-to-peer invite rooms are supported for live matches. Profile progression still saves locally; cloud saves and a public leaderboard are not connected yet.</p></div>';
+    '<div class="panel section-gap"><div class="panel-heading"><h3>PRIVACY & SAVES</h3><small>LOCAL + CLOUD</small></div><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">Your progress is cached in this browser. Connect an account from the Account page to back up your callsign, rating, shards, matches, quests, achievements, and cosmetics to your own cloud save. Peer-to-peer invite rooms are supported for live matches. Public leaderboards and server-verified competitive stats are not enabled yet.</p></div>';
 }
 
 function playerName(color) {
@@ -677,6 +677,10 @@ function activatePower(id) {
   if (!power || power.effectId !== id) { toast("Only your one locked-in power can be used.", "error"); return; }
   if (powerLocked[chess.turn()]) { toast("Your power is sealed for this turn.", "error"); return; }
   if (energy[chess.turn()] < power.cost) { toast("Not enough energy for " + power.name + ".", "error"); return; }
+  if (opponent === "online" && net.role === "guest" && !handlingRemote && ["haste", "surge", "drain", "timeStop"].includes(id)) {
+    peerRoom?.send({ type: "action", action: "instant-power", powerId: power.id, effectId: id });
+    return;
+  }
   if (id === "surge") {
     const color = chess.turn();
     energy[color] = clamp(energy[color] + 3, 0, 6);
@@ -1554,9 +1558,9 @@ function handlePeerData(message) {
           if (pendingPower) pendingPower = null;
           publishNetState();
         }
-      } else if (message.action === "haste") {
+      } else if (message.action === "instant-power") {
         const power = activePowers.b;
-        if (power && power.id === message.powerId && power.effectId === "haste") activatePower("haste");
+        if (power && power.id === message.powerId && power.effectId === message.effectId && ["haste", "surge", "drain", "timeStop"].includes(power.effectId)) activatePower(power.effectId);
       }
     } finally {
       handlingRemote = false;
