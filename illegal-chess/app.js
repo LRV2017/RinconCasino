@@ -1,7 +1,7 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
 import { POWER_CATALOG, POWER_COUNT, POWER_UNIVERSES, POWER_ARCHETYPES, POWER_MECHANICS, getPowerById, rollPowerChoices } from "./power-bank.js";
 import { PeerRoom } from "./peer-room.js";
-import { cloudConfigured, cloudGetSession, cloudOnAuthStateChange, cloudSignUp, cloudSignIn, cloudSignOut, cloudSendPasswordReset, cloudLoadSave, cloudWriteSave } from "./cloud.js";
+import { cloudConfigured, cloudGetSession, cloudOnAuthStateChange, cloudSignUp, cloudSignIn, cloudSignOut, cloudSendPasswordReset, cloudUpdatePassword, cloudLoadSave, cloudWriteSave } from "./cloud.js";
 
 const PROFILE_KEY = "rogueboard.profile.v1";
 const PUZZLE_FEN = "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1";
@@ -139,7 +139,7 @@ let draftRerolls = 0;
 let net = { role: null, connected: false, phase: "idle", roomCode: "", status: "Create a room or join a friend.", remoteName: "OPPONENT", myPower: null, remotePower: null };
 let peerRoom = null;
 let handlingRemote = false;
-let cloudState = { user: null, status: cloudConfigured ? "CONNECTING TO CLOUD…" : "CLOUD NOT CONFIGURED", sync: "local", lastSync: null, error: "", ready: false };
+let cloudState = { user: null, status: cloudConfigured ? "CONNECTING TO CLOUD…" : "CLOUD NOT CONFIGURED", sync: "local", lastSync: null, error: "", ready: false, recoveryMode: false };
 let cloudConflict = null;
 let cloudSaveTimer = null;
 let cloudHydratingUserId = null;
@@ -1374,6 +1374,7 @@ function handleAction(action, element) {
   else if (action === "account-signin") accountLogin();
   else if (action === "account-signout") accountLogout();
   else if (action === "account-reset") accountResetPassword();
+  else if (action === "account-save-password") accountUpdatePassword();
   else if (action === "cloud-sync") cloudSaveNow(true);
   else if (action === "use-cloud-save") useCloudConflict();
   else if (action === "use-device-save") useLocalConflict();
@@ -1886,6 +1887,7 @@ async function handleCloudSession(user) {
     cloudState.status = cloudConfigured ? "Signed out. Progress is saved on this device." : "Cloud not configured.";
     cloudConflict = null;
     cloudLoadedUserId = null;
+    cloudState.recoveryMode = false;
     syncChrome();
     if (currentView === "account") render();
     return;
@@ -1904,6 +1906,10 @@ async function initCloud() {
   cloudState.status = "Connecting to Supabase…";
   try {
     cloudAuthSubscription = cloudOnAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        cloudState.recoveryMode = true;
+        currentView = "account";
+      }
       window.setTimeout(() => handleCloudSession(session?.user || null), 0);
     });
     const { data, error } = await cloudGetSession();
@@ -1926,6 +1932,11 @@ function renderAccount() {
     return heading("ACCOUNT / CLOUD SAVE", "YOUR PROGRESS, EVERYWHERE.", "Create a player account and back up your rating, shards, cosmetics, quests, and match record across devices.") +
       '<section class="panel cloud-setup-panel"><div class="cloud-setup-icon">☁</div><div class="eyebrow">ONE-TIME BACKEND SETUP REQUIRED</div><h2>CONNECT A CLOUD DATABASE.</h2><p>Accounts use Supabase Auth and your saves live in a private Postgres row. This is ready to connect, but a Supabase project belongs to you, so its project URL and publishable key must be added before registration can work.</p><div class="cloud-steps"><div><b>01</b><span>Create a free Supabase project.</span></div><div><b>02</b><span>Run the SQL in supabase/rogueboard.sql.</span></div><div><b>03</b><span>Put the Project URL and publishable key in illegal-chess/cloud-config.js.</span></div></div><div class="cloud-setup-actions"><a class="btn btn-primary" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">OPEN SUPABASE ↗</a><a class="btn btn-secondary" href="https://github.com/LRV2017/RinconCasino/blob/main/illegal-chess/ACCOUNTS.md" target="_blank" rel="noreferrer">SETUP GUIDE ↗</a></div><p class="cloud-safety-note">Only the public publishable key belongs in the browser. Never use a service-role or secret key here.</p></section>' +
       '<section class="panel section-gap"><div class="panel-heading"><h3>YOUR CURRENT SAVE</h3><span class="account-state-badge">LOCAL CACHE</span></div><p class="mode-note">You can keep playing right now. Your existing local progress remains intact while cloud accounts are being connected.</p></section>';
+  }
+
+  if (cloudState.user && cloudState.recoveryMode) {
+    return heading("ACCOUNT / SECURITY", "SET A NEW PASSWORD.", "Your password reset link has been verified. Choose a new password for this account.") +
+      '<section class="panel auth-panel"><div class="auth-panel-title"><div class="eyebrow">PASSWORD RECOVERY</div><h2>RESET YOUR ACCESS.</h2><p>This updates your Supabase Auth password. It does not change your saved game profile.</p></div><div class="auth-fields"><label for="account-new-password">NEW PASSWORD</label><input id="account-new-password" class="text-input" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters"><label for="account-confirm-password">CONFIRM PASSWORD</label><input id="account-confirm-password" class="text-input" type="password" autocomplete="new-password" minlength="8" placeholder="Enter it again"><button class="btn btn-primary" data-action="account-save-password">SAVE NEW PASSWORD ↗</button></div></section>';
   }
 
   if (cloudState.user && cloudConflict) {
@@ -2008,6 +2019,24 @@ async function accountLogout() {
     toast("Signed out. Your local cache stays on this device.");
   } catch (error) {
     toast(error?.message || "Could not sign out.", "error");
+  }
+}
+
+async function accountUpdatePassword() {
+  if (!cloudConfigured || !cloudState.user) return;
+  const password = $("#account-new-password")?.value || "";
+  const confirm = $("#account-confirm-password")?.value || "";
+  if (password.length < 8) { toast("Use a password with at least 8 characters.", "error"); return; }
+  if (password !== confirm) { toast("The passwords do not match.", "error"); return; }
+  try {
+    const { error } = await cloudUpdatePassword(password);
+    if (error) throw error;
+    cloudState.recoveryMode = false;
+    cloudState.status = "Your password has been updated.";
+    render();
+    toast("Password updated.");
+  } catch (error) {
+    toast(error?.message || "Could not update the password.", "error");
   }
 }
 
