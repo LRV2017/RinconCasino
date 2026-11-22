@@ -416,6 +416,9 @@ function render() {
   else if (currentView === "profile") view.innerHTML = renderProfile();
   else if (currentView === "match") view.innerHTML = chess ? renderMatch() : renderPlay();
   else view.innerHTML = renderHome();
+  if (currentView === "play") {
+    view.insertAdjacentHTML("beforeend", '<section class="panel section-gap online-cta"><div><div class="eyebrow">FRIEND MATCH / PEER TO PEER</div><h3>ROLL POWERS. INVITE A FRIEND. BREAK THE BOARD.</h3><p>Create a private code and play a live match directly between two browsers.</p></div><button class="btn btn-primary" data-view="online">OPEN ONLINE ROOMS ↗</button></section>');
+  }
   view.focus({ preventScroll: true });
 }
 
@@ -1081,11 +1084,14 @@ function handleAction(action, element) {
   else if (action === "flip-board") { boardFlipped = !boardFlipped; render(); }
   else if (action === "new-match") { $("#modal-root").innerHTML = '<div class="modal-backdrop"><section class="modal-card"><div class="eyebrow">MATCH CONTROL</div><h2>START OVER?</h2><p>Your current match will be abandoned. This does not affect your saved match record.</p><div class="modal-actions"><button class="btn btn-secondary" data-action="close-modal">KEEP PLAYING</button><button class="btn btn-primary" data-action="confirm-new">NEW MATCH</button></div></section></div>'; }
   else if (action === "confirm-new") { $("#modal-root").innerHTML = ""; startGame(matchMode, opponent, difficulty, puzzleActive); }
-  else if (action === "resign") { if (opponent === "bot" && !puzzleActive) finishGame("b", "RESIGNATION"); else finishGame("b", "RESIGNATION"); }
+  else if (action === "resign") {
+    if (opponent === "online" && net.role === "guest") peerRoom?.send({ type: "resign" });
+    else finishGame(opponent === "online" ? "w" : "b", "RESIGNATION");
+  }
   else if (action === "cancel-power") { pendingPower = null; render(); }
   else if (action === "rematch") { $("#modal-root").innerHTML = ""; startGame(matchMode, opponent, difficulty, false); }
   else if (action === "retry-puzzle") { $("#modal-root").innerHTML = ""; startGame("classic", "puzzle", "steady", true); }
-  else if (action === "back-lobby") { $("#modal-root").innerHTML = ""; puzzleActive = false; setView("play"); }
+  else if (action === "back-lobby") { $("#modal-root").innerHTML = ""; puzzleActive = false; setView(opponent === "online" ? "online" : "play"); }
   else if (action === "claim-quest") updateDailyClaim(element.dataset.quest);
   else if (action === "buy-skin") buySkin(element.dataset.skin);
   else if (action === "equip-skin") equipSkin(element.dataset.skin);
@@ -1140,4 +1146,284 @@ if (!profile.daily || profile.daily.date !== todayKey()) {
   profile.daily = { date: todayKey(), matches: 0, captures: 0, wins: 0, claimed: [] };
   saveProfile();
 }
+render();
+
+
+function renderOnline() {
+  const hasRoom = Boolean(net.roomCode && peerRoom && !peerRoom.closed);
+  const room = hasRoom ? '<div class="room-code-box"><small>YOUR INVITE CODE</small><strong id="room-code-value">' + escapeHTML(net.roomCode) + '</strong><button class="btn btn-secondary btn-small" data-action="copy-room">COPY CODE</button></div>' : "";
+  return heading("ONLINE / DIRECT INVITE", "PLAY A REAL PERSON.", "Create a private room and send the six-character code to a friend. Both players roll three powers, lock one, and play the same live board.") +
+    '<div class="online-layout"><section class="panel online-create"><div class="online-icon">⇄</div><div class="eyebrow">HOST A MATCH</div><h2>MAKE A ROOM.</h2><p>Your browser becomes the match host. Share the code with one friend; they join from their own device.</p><button class="btn btn-primary" data-action="create-room" ' + (hasRoom ? "disabled" : "") + '>CREATE PRIVATE ROOM ↗</button>' + room + '</section>' +
+    '<section class="panel online-join"><div class="online-icon">⌁</div><div class="eyebrow">JOIN A MATCH</div><h2>ENTER THE CODE.</h2><p>Got a code from a friend? Type it below to connect directly to their game.</p><input class="text-input room-input" id="room-code-input" maxlength="6" placeholder="ABC123" autocomplete="off" aria-label="Six character room code"><button class="btn btn-secondary" data-action="join-room" ' + (hasRoom ? "disabled" : "") + '>JOIN ROOM ↗</button></section></div>' +
+    (hasRoom ? '<section class="panel section-gap room-status"><span class="status-dot"></span><div><strong>' + escapeHTML(net.status) + '</strong><small>' + (net.connected ? "CONNECTED · " + (net.role === "host" ? "HOST" : "GUEST") : "WAITING FOR CONNECTION") + '</small></div><button class="btn btn-danger btn-small" data-action="leave-room">LEAVE ROOM</button></section>' : '<section class="panel section-gap"><div class="eyebrow">HOW THE CONNECTION WORKS</div><h3 style="font:700 24px var(--display);margin:8px 0">NO GAME SERVER TO RUN.</h3><p style="color:var(--muted);font-size:10px;line-height:1.7;margin:0">The room code uses a lightweight public signalling service to find the other browser. Chess moves then travel over a WebRTC data channel between players. Some restrictive networks may require a relay, and the host must keep their tab open.</p></section>') +
+    '<section class="panel section-gap"><div class="panel-heading"><h3>ONLINE MATCH RULES</h3><small>PRIVATE FRIEND ROOM</small></div><div class="mode-features"><span>2 PLAYERS</span><span>1 POWER EACH</span><span>HOST VALIDATES MOVES</span><span>LIVE STATE SYNC</span><span>NO GLOBAL MATCHMAKING YET</span></div></section>';
+}
+
+function renderPowerDraft() {
+  const online = draftContext?.who === "online";
+  const selected = draftSelection ? getPowerById(draftSelection) : null;
+  const options = draftChoices.map(power => '<button class="draft-power-card ' + (draftSelection === power.id ? "chosen" : "") + '" data-draft-power="' + power.id + '"><div class="draft-card-top"><span class="draft-rarity ' + power.rarity + '">' + power.rarity.toUpperCase() + '</span><span class="draft-icon">' + power.icon + '</span></div><small>' + escapeHTML(power.universe) + '</small><strong>' + escapeHTML(power.technique) + '</strong><p>' + escapeHTML(power.description) + '</p><div class="draft-card-foot"><span>' + power.cost + ' ENERGY</span><span>' + power.effectId.toUpperCase() + '</span></div></button>').join("");
+  return heading("POWER ROLL / 1,000 IN THE VAULT", "ROLL YOUR DESTINY.", "Three random powers. One pick. Your selected ability is your only power for the entire match. Every player gets their own roll.") +
+    '<div class="draft-summary"><div><strong>1,000</strong><small>UNIQUE POWER CARDS</small></div><div><strong>' + POWER_UNIVERSES + '</strong><small>UNIVERSES</small></div><div><strong>' + POWER_ARCHETYPES + '</strong><small>POWER EFFECTS</small></div><div><strong>1</strong><small>LOCKED PICK</small></div></div>' +
+    '<div class="draft-instruction"><span class="draft-step">01</span><div><strong>CHOOSE ONE POWER.</strong><small>Click a card to preview it. Locking your choice starts the match when both players are ready.</small></div><span class="draft-count">' + (draftSelection ? "1 / 1 SELECTED" : "0 / 1 SELECTED") + '</span></div>' +
+    '<div class="draft-grid">' + options + '</div>' +
+    '<div class="draft-actions"><button class="btn btn-secondary" data-action="roll-power" ' + (online && net.myPower ? "disabled" : "") + '>↻ ROLL THREE AGAIN · 25 ◈</button><div class="draft-selected">' + (selected ? '<strong>' + escapeHTML(selected.name) + '</strong><small>LOCK THIS POWER FOR YOUR MATCH</small>' : '<strong>NO POWER SELECTED</strong><small>CHOOSE ONE OF THE THREE CARDS ABOVE</small>') + '</div><button class="btn btn-primary" data-action="lock-power" ' + (!selected || (online && net.myPower) ? "disabled" : "") + '>LOCK POWER ↗</button></div>' +
+    (online ? '<div class="panel section-gap room-status"><span class="status-dot"></span><div><strong>' + (net.myPower ? "Your power is locked. Waiting for your opponent…" : "Connected to " + escapeHTML(net.remoteName) + ".") + '</strong><small>' + (net.role === "host" ? "YOU ARE WHITE / ROOM HOST" : "YOU ARE BLACK / ROOM GUEST") + '</small></div></div>' : '<p class="draft-footnote">The power names are crossover references for a fan-made game. No official character artwork, logos, music, or franchise assets are used.</p>');
+}
+
+function beginPowerDraft(context) {
+  draftContext = context;
+  draftChoices = rollPowerChoices(3);
+  draftSelection = null;
+  draftRerolls = 0;
+  if (context.who === "online") {
+    net.phase = "draft";
+    net.myPower = null;
+    net.remotePower = null;
+    net.status = "Both players are choosing a power.";
+  }
+  currentView = "draft";
+  $("#modal-root").innerHTML = "";
+  render();
+}
+
+function rerollPowerChoices() {
+  if (draftSelection) { toast("Your choice is already selected. Clear it by returning to the arena.", "error"); return; }
+  const price = draftRerolls === 0 ? 0 : 25;
+  if (profile.credits < price) { toast("You need 25 shards to reroll.", "error"); return; }
+  if (price) {
+    profile.credits -= price;
+    saveProfile();
+  }
+  draftChoices = rollPowerChoices(3, draftChoices.map(power => power.id));
+  draftRerolls++;
+  draftSelection = null;
+  render();
+  toast(price ? "Three new powers rolled." : "Free roll refreshed.");
+}
+
+function lockDraftChoice() {
+  if (!draftSelection) { toast("Choose one power first.", "error"); return; }
+  const power = getPowerById(draftSelection);
+  if (!power) { toast("That power is not in the catalogue.", "error"); return; }
+  if (draftContext?.who === "online") {
+    if (!net.connected || !peerRoom) { toast("Your peer connection is no longer active.", "error"); return; }
+    net.myPower = power;
+    peerRoom.send({ type: "power-pick", id: power.id });
+    render();
+    if (net.role === "host" && net.remotePower) launchOnlineMatch();
+    else toast("Power locked. Waiting for the other player.");
+    return;
+  }
+  const context = draftContext || { mode: "chaos", who: "bot", level: "steady" };
+  const botPower = rollPowerChoices(1, [power.id])[0];
+  startGame(context.mode, context.who, context.level, false, power, true, { w: power, b: botPower });
+}
+
+function launchOnlineMatch() {
+  if (net.role !== "host" || !net.myPower || !net.remotePower || !net.connected) return;
+  net.phase = "match";
+  const loadout = { w: net.myPower, b: net.remotePower };
+  peerRoom?.send({ type: "start", whitePower: loadout.w.id, blackPower: loadout.b.id, hostName: profile.name });
+  startGame("chaos", "online", "steady", false, null, true, loadout);
+}
+
+function createRoomCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, value => alphabet[value % alphabet.length]).join("");
+}
+
+async function createOnlineRoom() {
+  try {
+    leaveOnlineRoom(false);
+    const code = createRoomCode();
+    net = { role: "host", connected: false, phase: "waiting", roomCode: code, status: "Opening private room…", remoteName: "GUEST", myPower: null, remotePower: null };
+    peerRoom = new PeerRoom({ onData: handlePeerData, onStatus: handlePeerStatus });
+    currentView = "online";
+    render();
+    await peerRoom.host(code);
+    net.status = "Room is open. Send the code to your friend.";
+    render();
+    toast("Room " + code + " created.");
+  } catch (error) {
+    net.status = error?.message || "Could not create this room.";
+    toast(net.status, "error");
+    render();
+  }
+}
+
+async function joinOnlineRoom() {
+  const input = $("#room-code-input");
+  const code = (input?.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  if (code.length !== 6) { toast("Enter the full six-character room code.", "error"); return; }
+  try {
+    leaveOnlineRoom(false);
+    net = { role: "guest", connected: false, phase: "joining", roomCode: code, status: "Connecting to host…", remoteName: "HOST", myPower: null, remotePower: null };
+    peerRoom = new PeerRoom({ onData: handlePeerData, onStatus: handlePeerStatus });
+    currentView = "online";
+    render();
+    await peerRoom.join(code);
+    net.connected = true;
+    net.status = "Connected. Waiting for the host.";
+    peerRoom.send({ type: "hello", name: profile.name });
+    render();
+  } catch (error) {
+    net.status = error?.message || "Could not join that room.";
+    toast(net.status, "error");
+    render();
+  }
+}
+
+function handlePeerStatus(message) {
+  net.status = message;
+  if (message === "Peer-to-peer connection ready." && net.role === "host") {
+    peerRoom?.send({ type: "hello", name: profile.name });
+  }
+  if (message === "Opponent disconnected.") {
+    net.connected = false;
+    toast("Your opponent disconnected.", "error");
+  }
+  if (currentView === "online" || currentView === "draft") render();
+}
+
+function handlePeerData(message) {
+  if (!message || typeof message !== "object") return;
+  if (message.type === "disconnect") {
+    net.connected = false;
+    net.status = "Opponent disconnected.";
+    if (currentView === "online" || currentView === "match") render();
+    return;
+  }
+  if (message.type === "hello") {
+    if (net.role === "host") {
+      net.connected = true;
+      net.remoteName = String(message.name || "GUEST").slice(0, 16);
+      peerRoom?.send({ type: "welcome", name: profile.name });
+      if (net.phase !== "draft" && net.phase !== "match") beginPowerDraft({ mode: "chaos", who: "online", level: "steady" });
+      else if (currentView === "online") render();
+    } else {
+      net.remoteName = String(message.name || "HOST").slice(0, 16);
+      peerRoom?.send({ type: "hello", name: profile.name });
+    }
+    return;
+  }
+  if (message.type === "welcome" && net.role === "guest") {
+    net.connected = true;
+    net.remoteName = String(message.name || "HOST").slice(0, 16);
+    net.status = "Connected. Roll your power.";
+    beginPowerDraft({ mode: "chaos", who: "online", level: "steady" });
+    return;
+  }
+  if (message.type === "power-pick" && net.role === "host" && net.phase === "draft") {
+    const power = getPowerById(message.id);
+    if (!power) { peerRoom?.send({ type: "error", message: "Invalid power selection." }); return; }
+    net.remotePower = power;
+    if (net.myPower) launchOnlineMatch();
+    else { net.status = "Opponent picked. Lock your power to start."; render(); }
+    return;
+  }
+  if (message.type === "start" && net.role === "guest") {
+    const whitePower = getPowerById(message.whitePower);
+    const blackPower = getPowerById(message.blackPower);
+    if (!whitePower || !blackPower) { toast("Host sent an invalid loadout.", "error"); return; }
+    net.phase = "match";
+    net.connected = true;
+    net.remoteName = String(message.hostName || net.remoteName || "HOST").slice(0, 16);
+    startGame("chaos", "online", "steady", false, null, true, { w: whitePower, b: blackPower });
+    return;
+  }
+  if (message.type === "action" && net.role === "host" && opponent === "online" && !gameOver) {
+    if (chess.turn() !== "b") return;
+    handlingRemote = true;
+    try {
+      if (message.action === "move" && typeof message.from === "string" && typeof message.to === "string") {
+        doNormalMove(message.from, message.to);
+      } else if (message.action === "power") {
+        const power = activePowers.b;
+        if (power && power.id === message.powerId && power.effectId === message.effectId) {
+          pendingPower = { id: power.effectId, from: message.from || null };
+          handlePowerTarget(message.square);
+          if (pendingPower) pendingPower = null;
+          publishNetState();
+        }
+      } else if (message.action === "haste") {
+        const power = activePowers.b;
+        if (power && power.id === message.powerId && power.effectId === "haste") activatePower("haste");
+      }
+    } finally {
+      handlingRemote = false;
+    }
+    return;
+  }
+  if (message.type === "resign" && net.role === "host" && opponent === "online") {
+    finishGame("w", "OPPONENT RESIGNED");
+    return;
+  }
+  if (message.type === "state" && net.role === "guest" && opponent === "online") {
+    const wasOver = gameOver;
+    try { chess = new Chess(message.fen); } catch (error) { toast("Received an invalid board snapshot.", "error"); return; }
+    energy = message.energy || energy;
+    frozen = message.frozen || { w: {}, b: {} };
+    shielded = message.shielded || { w: {}, b: {} };
+    doubleMoves = Number(message.doubleMoves || 0);
+    actionLog = Array.isArray(message.actionLog) ? message.actionLog : actionLog;
+    gameCaptures = Number(message.gameCaptures || 0);
+    gameOver = false;
+    if (message.gameOver && !wasOver) {
+      finishGame(message.winner, message.reason || "MATCH COMPLETE", true);
+    } else {
+      gameOver = Boolean(message.gameOver);
+      render();
+    }
+  }
+  if (message.type === "error") toast(String(message.message || "Network action rejected."), "error");
+}
+
+function publishNetState() {
+  if (opponent !== "online" || net.role !== "host" || !net.connected || !peerRoom || !chess) return;
+  peerRoom.send({
+    type: "state",
+    fen: chess.fen(),
+    energy: energy,
+    frozen: frozen,
+    shielded: shielded,
+    doubleMoves: doubleMoves,
+    actionLog: actionLog,
+    gameCaptures: gameCaptures,
+    gameOver: gameOver,
+    winner: lastResult?.winner || null,
+    reason: lastResult?.reason || null
+  });
+}
+
+async function copyRoomCode() {
+  if (!net.roomCode) return;
+  try {
+    await navigator.clipboard.writeText(net.roomCode);
+    toast("Room code copied.");
+  } catch (error) {
+    toast("Copy was blocked by your browser. Select the code manually.", "error");
+  }
+}
+
+function leaveOnlineRoom(returnToLobby = true) {
+  peerRoom?.close();
+  peerRoom = null;
+  net = { role: null, connected: false, phase: "idle", roomCode: "", status: "Create a room or join a friend.", remoteName: "OPPONENT", myPower: null, remotePower: null };
+  if (returnToLobby) {
+    currentView = "play";
+    render();
+  }
+}
+
+document.addEventListener("click", event => {
+  const card = event.target.closest("[data-draft-power]");
+  if (!card) return;
+  if (net.phase === "draft" && net.myPower) return;
+  draftSelection = card.dataset.draftPower;
+  render();
+});
+
 render();
