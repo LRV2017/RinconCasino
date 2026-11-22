@@ -293,6 +293,10 @@ function renderProfile() {
 
 function playerName(color) {
   if (opponent === "local") return color === "w" ? (profile.name || "PLAYER 1") : "PLAYER 2";
+  if (opponent === "online") {
+    if (net.role === "host") return color === "w" ? (profile.name || "HOST") : (net.remoteName || "GUEST");
+    return color === "b" ? (profile.name || "GUEST") : (net.remoteName || "HOST");
+  }
   return color === "w" ? (profile.name || "YOU") : "ROGUE BOT";
 }
 function pieceAt(square) { return chess ? chess.get(square) : null; }
@@ -350,12 +354,15 @@ function renderLog() {
 }
 function renderPowerDeck() {
   if (matchMode !== "chaos") return '<div class="mode-note">Classic rules are active. No powers, no shortcuts. Just legal moves and good decisions.</div>';
+  const turn = chess.turn();
+  const power = activePowers[turn];
+  if (!power) return '<div class="mode-note">Waiting for both players to lock their rolled powers.</div>';
   const isTurn = isHumanTurn() && !gameOver && !botThinking;
-  const cards = POWERS.map(power => {
-    const canUse = isTurn && energy[chess.turn()] >= power.cost && (!pendingPower || pendingPower.id === power.id);
-    return '<button class="ability-card ' + (pendingPower && pendingPower.id === power.id ? "active" : "") + '" data-power="' + power.id + '" ' + (canUse ? "" : "disabled") + '><span class="ability-top"><span class="ability-icon">' + power.icon + '</span><span class="ability-cost">' + power.cost + ' ◈</span></span><strong>' + power.name + '</strong><small>' + power.desc + '</small></button>';
-  }).join("");
-  return (pendingPower ? '<div class="target-hint">' + powerHint() + '<br><button class="text-button" style="margin-top:6px;color:var(--lime)" data-action="cancel-power">CANCEL TARGETING ×</button></div>' : '') + '<div class="ability-grid">' + cards + '</div>';
+  const canUse = isTurn && energy[turn] >= power.cost && (!pendingPower || pendingPower.id === power.effectId);
+  const desc = power.description || power.desc || "A rolled crossover power.";
+  const label = net.connected ? (net.role === "host" ? (turn === "w" ? "YOUR PICK" : "OPPONENT PICK") : (turn === "b" ? "YOUR PICK" : "OPPONENT PICK")) : (turn === "w" ? "YOUR PICK" : "BOT PICK");
+  return '<div class="power-selected"><div class="power-picked-label">' + label + ' · ' + escapeHTML(power.rarity || "ROLLED").toUpperCase() + '</div><button class="ability-card single-power ' + (pendingPower && pendingPower.id === power.effectId ? "active" : "") + '" data-power="' + power.effectId + '" ' + (canUse ? "" : "disabled") + '><span class="ability-top"><span class="ability-icon">' + (power.icon || "✦") + '</span><span class="ability-cost">' + power.cost + ' ENERGY</span></span><strong>' + escapeHTML(power.name) + '</strong><small>' + escapeHTML(desc) + '</small><em>' + escapeHTML(power.universe || "ROGUEBOARD ORIGINAL") + '</em></button></div>' +
+  (pendingPower ? '<div class="target-hint">' + powerHint() + '<br><button class="text-button" style="margin-top:6px;color:var(--lime)" data-action="cancel-power">CANCEL TARGETING ×</button></div>' : '');
 }
 function powerHint() {
   if (!pendingPower) return "";
@@ -394,7 +401,13 @@ function render() {
   const view = $("#view");
   if (!view) return;
   syncChrome();
-  if (currentView === "home") view.innerHTML = renderHome();
+  if (currentView === "online") {
+    view.innerHTML = renderOnline();
+    $("#top-section").textContent = "PEER-TO-PEER ROOMS";
+  } else if (currentView === "draft") {
+    view.innerHTML = renderPowerDraft();
+    $("#top-section").textContent = "ROLL 3 / PICK 1";
+  } else if (currentView === "home") view.innerHTML = renderHome();
   else if (currentView === "play") view.innerHTML = renderPlay();
   else if (currentView === "practice") view.innerHTML = renderPractice();
   else if (currentView === "armory") view.innerHTML = renderArmory();
@@ -408,10 +421,16 @@ function render() {
 
 function isHumanTurn() {
   if (!chess || gameOver || botThinking) return false;
+  if (opponent === "online") return net.connected && (net.role === "host" ? chess.turn() === "w" : chess.turn() === "b");
   return opponent === "local" || chess.turn() === "w";
 }
-function startGame(mode = "chaos", who = "bot", level = "steady", isPuzzle = false) {
-  matchMode = mode === "local" ? selectedLocalMode : mode;
+function startGame(mode = "chaos", who = "bot", level = "steady", isPuzzle = false, chosenPower = null, skipDraft = false, powerLoadout = null) {
+  const resolvedMode = mode === "local" ? selectedLocalMode : mode;
+  if (resolvedMode === "chaos" && !isPuzzle && !skipDraft) {
+    beginPowerDraft({ mode: resolvedMode, who: who, level: level });
+    return;
+  }
+  matchMode = resolvedMode;
   opponent = mode === "local" ? "local" : who;
   difficulty = level;
   puzzleActive = isPuzzle;
@@ -425,16 +444,20 @@ function startGame(mode = "chaos", who = "bot", level = "steady", isPuzzle = fal
   frozen = { w: {}, b: {} };
   shielded = { w: {}, b: {} };
   doubleMoves = 0;
-  boardFlipped = false;
+  boardFlipped = opponent === "online" && net.role === "guest";
   actionLog = [];
   gameCaptures = 0;
   lastResult = null;
   resultModalVisible = false;
   activeSkin = profile.equippedSkin || "standard";
-  recordLog("SYSTEM", isPuzzle ? "Puzzle loaded: mate in one." : matchMode === "chaos" ? "Chaos rules armed. Powers are online." : "Standard chess rules loaded.");
+  const firstPower = chosenPower || (matchMode === "chaos" ? rollPowerChoices(1)[0] : null);
+  activePowers = matchMode === "chaos" ? (powerLoadout || { w: firstPower, b: opponent === "online" ? null : rollPowerChoices(1)[0] }) : { w: null, b: null };
+  recordLog("SYSTEM", isPuzzle ? "Puzzle loaded: mate in one." : matchMode === "chaos" ? "Chaos rules armed. One rolled power per player." : "Standard chess rules loaded.");
+  if (opponent === "online") net.phase = "match";
   currentView = "match";
   $("#modal-root").innerHTML = "";
   render();
+  if (opponent === "online" && net.role === "host") publishNetState();
   toast(isPuzzle ? "Find the forced checkmate in one." : "The board is live. Make it count.");
 }
 let selectedLocalMode = "chaos";
@@ -481,18 +504,18 @@ function sniperCanReach(target, color) {
 }
 function rocketCanReach(target, color) {
   const board = chess.board();
+  const range = activePowers[color]?.range || 2;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const piece = board[r][c];
     if (!piece || piece.color !== color) continue;
     const from = String.fromCharCode(97 + c) + (8 - r);
-    if (squareDistance(from, target) <= 2) return true;
+    if (squareDistance(from, target) <= range) return true;
   }
   return false;
 }
 function forceTurn(color) {
   const fields = chess.fen().split(" ");
   fields[1] = color;
-  fields[2] = "-";
   fields[3] = "-";
   fields[4] = "0";
   try {
@@ -517,7 +540,11 @@ function checkGameEnd() {
   return false;
 }
 function doNormalMove(from, to) {
-  if (!isHumanTurn()) return;
+  if (opponent === "online" && net.role === "guest" && !handlingRemote) {
+    peerRoom?.send({ type: "action", action: "move", from: from, to: to });
+    return;
+  }
+  if (!isHumanTurn() && !handlingRemote) return;
   const color = chess.turn();
   const destinationPiece = chess.get(to);
   if (destinationPiece && shielded[destinationPiece.color][to]) {
@@ -526,6 +553,7 @@ function doNormalMove(from, to) {
     toast("Shield absorbed the capture. That piece survives.", "error");
     recordLog("SHIELD", to.toUpperCase() + " absorbed an attack.");
     render();
+    publishNetState();
     return;
   }
   let result;
@@ -535,7 +563,7 @@ function doNormalMove(from, to) {
   if (captured) {
     gameCaptures++;
     energy[color] = clamp(energy[color] + 2, 0, 6);
-    if (opponent === "local" || color === "w") {
+    if (opponent === "local" || (opponent === "bot" && color === "w") || (opponent === "online" && ((net.role === "host" && color === "w") || (net.role === "guest" && color === "b")))) {
       profile.captures++;
       profile.daily.captures++;
       saveProfile();
@@ -566,17 +594,19 @@ function doNormalMove(from, to) {
   }
   if (doubleMoves > 0 && color === "w") {
     doubleMoves--;
-    if (!chess.isCheck() && forceTurn("w")) {
-      recordLog("HASTE", "Second move granted.");
-      toast("DOUBLE TIME — YOU HAVE ONE MORE MOVE.");
+    if (!chess.isCheck() && forceTurn(doubleMoves > 0 ? "w" : "b")) {
+      recordLog("HASTE", doubleMoves > 0 ? "Extra move granted." : "Extra moves exhausted.");
+      toast(doubleMoves > 0 ? "DOUBLE TIME — ONE MORE MOVE." : "DOUBLE TIME COMPLETE.");
       render();
+      publishNetState();
       return;
     }
     doubleMoves = 0;
     toast("Your extra move was cancelled because the opponent is in check.", "error");
   }
   render();
-  if (checkGameEnd()) return;
+  if (checkGameEnd()) { publishNetState(); return; }
+  publishNetState();
   if (opponent === "bot" && chess.turn() === "b") maybeBotTurn();
 }
 function handleSquareClick(square) {
@@ -611,21 +641,26 @@ function handleSquareClick(square) {
 }
 
 function activatePower(id) {
-  if (!chess || gameOver || !isHumanTurn()) return;
+  if (!chess || gameOver || (!isHumanTurn() && !handlingRemote)) return;
   if (matchMode !== "chaos") { toast("Powers are disabled in Classic mode.", "error"); return; }
   if (chess.isCheck()) { toast("Your king is in check. Defend it before using a power.", "error"); return; }
-  const power = POWERS.find(item => item.id === id);
-  if (!power) return;
+  const power = activePowers[chess.turn()];
+  if (!power || power.effectId !== id) { toast("Only your one locked-in power can be used.", "error"); return; }
   if (energy[chess.turn()] < power.cost) { toast("Not enough energy for " + power.name + ".", "error"); return; }
   if (id === "haste") {
+    if (opponent === "online" && net.role === "guest" && !handlingRemote) {
+      peerRoom?.send({ type: "action", action: "haste", powerId: power.id });
+      return;
+    }
     if (doubleMoves) { toast("Double Time is already active.", "error"); return; }
     energy[chess.turn()] -= power.cost;
     doubleMoves = 2;
     selectedSquare = null;
     pendingPower = null;
-    recordLog("POWER", "DOUBLE TIME activated. Two moves queued.");
-    toast("Double Time active. Your next two moves are yours.");
+    recordLog("POWER", power.name + " activated. Two moves queued.");
+    toast(power.name + " active. Take your two moves.");
     render();
+    publishNetState();
     return;
   }
   pendingPower = { id: id, from: null };
@@ -634,8 +669,8 @@ function activatePower(id) {
   toast(power.name + " armed. Select a target on the board.");
 }
 function consumePower(color, id) {
-  const power = POWERS.find(item => item.id === id);
-  energy[color] = clamp(energy[color] - power.cost, 0, 6);
+  const power = activePowers[color];
+  energy[color] = clamp(energy[color] - (power?.cost || 2), 0, 6);
   selectedSquare = null;
   pendingPower = null;
 }
@@ -651,11 +686,27 @@ function advancePowerTurn(color, message) {
     render();
     if (opponent === "bot" && chess.turn() === "b") maybeBotTurn();
   }
+  publishNetState();
   return true;
 }
 function handlePowerTarget(square) {
   const power = pendingPower;
   if (!power) return;
+  if (opponent === "online" && net.role === "guest" && !handlingRemote) {
+    const piece = chess.get(square);
+    if ((power.id === "teleport" || power.id === "swap") && !power.from) {
+      if (!piece || piece.color !== "b" || piece.type === "k") { toast("Choose one of your non-king pieces.", "error"); return; }
+      power.from = square;
+      render();
+      toast("Now select the second square.");
+      return;
+    }
+    peerRoom?.send({ type: "action", action: "power", powerId: activePowers.b?.id, effectId: power.id, from: power.from || null, square: square });
+    pendingPower = null;
+    selectedSquare = null;
+    render();
+    return;
+  }
   const id = power.id;
   const color = chess.turn();
   const enemy = opposite(color);
@@ -917,10 +968,11 @@ function finishGame(winner, reason) {
   let xpReward = 0;
   let shardReward = 0;
   let ratingChange = 0;
-  if (!puzzleActive && opponent === "bot") {
+  if (!puzzleActive && (opponent === "bot" || opponent === "online")) {
     profile.matches++;
     profile.daily.matches++;
-    if (winner === "w") {
+    const localWon = opponent === "online" ? (net.role === "host" ? winner === "w" : winner === "b") : winner === "w";
+    if (localWon) {
       profile.wins++;
       profile.streak++;
       profile.bestStreak = Math.max(profile.bestStreak, profile.streak);
@@ -949,6 +1001,7 @@ function finishGame(winner, reason) {
   lastResult = { winner: winner, reason: reason, xp: xpReward, shards: shardReward, rating: ratingChange };
   render();
   showResultModal(lastResult);
+  if (opponent === "online" && net.role === "host") publishNetState();
 }
 function showResultModal(result) {
   const win = result.winner === "w";
@@ -1012,7 +1065,14 @@ function startFromSetup() {
   }
 }
 function handleAction(action, element) {
-  if (action === "go-play") setView("play");
+  if (action === "open-online") setView("online");
+  else if (action === "create-room") createOnlineRoom();
+  else if (action === "join-room") joinOnlineRoom();
+  else if (action === "copy-room") copyRoomCode();
+  else if (action === "leave-room") leaveOnlineRoom();
+  else if (action === "roll-power") rerollPowerChoices();
+  else if (action === "lock-power") lockDraftChoice();
+  else if (action === "go-play") setView("play");
   else if (action === "quick-chaos") { selectedMode = "chaos"; setView("play"); startGame("chaos", "bot", selectedDifficulty, false); }
   else if (action === "quick-classic") { selectedMode = "classic"; setView("play"); startGame("classic", "bot", selectedDifficulty, false); }
   else if (action === "start-match") startFromSetup();
