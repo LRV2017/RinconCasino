@@ -1,5 +1,5 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
-import { POWER_CATALOG, POWER_COUNT, POWER_UNIVERSES, POWER_ARCHETYPES, getPowerById, rollPowerChoices } from "./power-bank.js";
+import { POWER_CATALOG, POWER_COUNT, POWER_UNIVERSES, POWER_ARCHETYPES, POWER_MECHANICS, getPowerById, rollPowerChoices } from "./power-bank.js";
 import { PeerRoom } from "./peer-room.js";
 
 const PROFILE_KEY = "rogueboard.profile.v1";
@@ -595,9 +595,9 @@ function doNormalMove(from, to) {
     render();
     return;
   }
-  if (doubleMoves > 0 && color === "w") {
+  if (doubleMoves > 0) {
     doubleMoves--;
-    if (!chess.isCheck() && forceTurn(doubleMoves > 0 ? "w" : "b")) {
+    if (!chess.isCheck() && forceTurn(doubleMoves > 0 ? color : opposite(color))) {
       recordLog("HASTE", doubleMoves > 0 ? "Extra move granted." : "Extra moves exhausted.");
       toast(doubleMoves > 0 ? "DOUBLE TIME — ONE MORE MOVE." : "DOUBLE TIME COMPLETE.");
       render();
@@ -984,7 +984,7 @@ function finishGame(winner, reason) {
       shardReward = matchMode === "chaos" ? 125 : 100;
       ratingChange = difficulty === "hard" ? 24 : difficulty === "steady" ? 18 : 12;
       profile.rating += ratingChange;
-    } else if (winner === "b") {
+    } else if (opponent === "online" ? !localWon && winner !== "draw" : winner === "b") {
       profile.losses++;
       profile.streak = 0;
       xpReward = 45;
@@ -1007,7 +1007,7 @@ function finishGame(winner, reason) {
   if (opponent === "online" && net.role === "host") publishNetState();
 }
 function showResultModal(result) {
-  const win = result.winner === "w";
+  const win = opponent === "online" ? (net.role === "host" ? result.winner === "w" : result.winner === "b") : result.winner === "w";
   const draw = result.winner === "draw";
   const title = puzzleActive ? (win ? "PUZZLE SOLVED." : "PUZZLE FAILED.") : draw ? "NO WINNER." : win ? "BOARD DOMINATED." : "OUTPLAYED.";
   const subtitle = puzzleActive ? "You found the forced mate in one." : result.reason + " / " + (win ? "You took the match." : draw ? "The game ended level." : "The bot takes this round. Run it back.");
@@ -1086,7 +1086,7 @@ function handleAction(action, element) {
   else if (action === "confirm-new") { $("#modal-root").innerHTML = ""; startGame(matchMode, opponent, difficulty, puzzleActive); }
   else if (action === "resign") {
     if (opponent === "online" && net.role === "guest") peerRoom?.send({ type: "resign" });
-    else finishGame(opponent === "online" ? "w" : "b", "RESIGNATION");
+    else finishGame("b", "RESIGNATION");
   }
   else if (action === "cancel-power") { pendingPower = null; render(); }
   else if (action === "rematch") { $("#modal-root").innerHTML = ""; startGame(matchMode, opponent, difficulty, false); }
@@ -1164,10 +1164,10 @@ function renderPowerDraft() {
   const selected = draftSelection ? getPowerById(draftSelection) : null;
   const options = draftChoices.map(power => '<button class="draft-power-card ' + (draftSelection === power.id ? "chosen" : "") + '" data-draft-power="' + power.id + '"><div class="draft-card-top"><span class="draft-rarity ' + power.rarity + '">' + power.rarity.toUpperCase() + '</span><span class="draft-icon">' + power.icon + '</span></div><small>' + escapeHTML(power.universe) + '</small><strong>' + escapeHTML(power.technique) + '</strong><p>' + escapeHTML(power.description) + '</p><div class="draft-card-foot"><span>' + power.cost + ' ENERGY</span><span>' + power.effectId.toUpperCase() + '</span></div></button>').join("");
   return heading("POWER ROLL / 1,000 IN THE VAULT", "ROLL YOUR DESTINY.", "Three random powers. One pick. Your selected ability is your only power for the entire match. Every player gets their own roll.") +
-    '<div class="draft-summary"><div><strong>1,000</strong><small>UNIQUE POWER CARDS</small></div><div><strong>' + POWER_UNIVERSES + '</strong><small>UNIVERSES</small></div><div><strong>' + POWER_ARCHETYPES + '</strong><small>POWER EFFECTS</small></div><div><strong>1</strong><small>LOCKED PICK</small></div></div>' +
+    '<div class="draft-summary"><div><strong>' + POWER_COUNT.toLocaleString() + '</strong><small>UNIQUE POWER CARDS</small></div><div><strong>' + POWER_UNIVERSES + '</strong><small>UNIVERSES</small></div><div><strong>' + POWER_ARCHETYPES + '</strong><small>NAMED TECHNIQUES</small></div><div><strong>' + POWER_MECHANICS + '</strong><small>CORE MECHANICS</small></div></div>' +
     '<div class="draft-instruction"><span class="draft-step">01</span><div><strong>CHOOSE ONE POWER.</strong><small>Click a card to preview it. Locking your choice starts the match when both players are ready.</small></div><span class="draft-count">' + (draftSelection ? "1 / 1 SELECTED" : "0 / 1 SELECTED") + '</span></div>' +
     '<div class="draft-grid">' + options + '</div>' +
-    '<div class="draft-actions"><button class="btn btn-secondary" data-action="roll-power" ' + (online && net.myPower ? "disabled" : "") + '>↻ ROLL THREE AGAIN · 25 ◈</button><div class="draft-selected">' + (selected ? '<strong>' + escapeHTML(selected.name) + '</strong><small>LOCK THIS POWER FOR YOUR MATCH</small>' : '<strong>NO POWER SELECTED</strong><small>CHOOSE ONE OF THE THREE CARDS ABOVE</small>') + '</div><button class="btn btn-primary" data-action="lock-power" ' + (!selected || (online && net.myPower) ? "disabled" : "") + '>LOCK POWER ↗</button></div>' +
+    '<div class="draft-actions"><button class="btn btn-secondary" data-action="roll-power" ' + (online && net.myPower ? "disabled" : "") + '>↻ ' + (draftRerolls === 0 ? 'FREE REROLL' : 'ROLL AGAIN · 25 ◈') + '</button>'<div class="draft-selected">' + (selected ? '<strong>' + escapeHTML(selected.name) + '</strong><small>LOCK THIS POWER FOR YOUR MATCH</small>' : '<strong>NO POWER SELECTED</strong><small>CHOOSE ONE OF THE THREE CARDS ABOVE</small>') + '</div><button class="btn btn-primary" data-action="lock-power" ' + (!selected || (online && net.myPower) ? "disabled" : "") + '>LOCK POWER ↗</button></div>' +
     (online ? '<div class="panel section-gap room-status"><span class="status-dot"></span><div><strong>' + (net.myPower ? "Your power is locked. Waiting for your opponent…" : "Connected to " + escapeHTML(net.remoteName) + ".") + '</strong><small>' + (net.role === "host" ? "YOU ARE WHITE / ROOM HOST" : "YOU ARE BLACK / ROOM GUEST") + '</small></div></div>' : '<p class="draft-footnote">The power names are crossover references for a fan-made game. No official character artwork, logos, music, or franchise assets are used.</p>');
 }
 
@@ -1305,7 +1305,6 @@ function handlePeerData(message) {
       else if (currentView === "online") render();
     } else {
       net.remoteName = String(message.name || "HOST").slice(0, 16);
-      peerRoom?.send({ type: "hello", name: profile.name });
     }
     return;
   }
