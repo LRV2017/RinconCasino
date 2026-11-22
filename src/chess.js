@@ -253,4 +253,20 @@ function mountChess(game,root,wallet){
   root.addEventListener("click",click);render();
   return {close:()=>{if(stake&&!done){done=true;wallet.settle(stake,0,game.name);}arena?.destroy();},destroy:()=>{root.removeEventListener("click",click);arena?.destroy();}};
 }
+
+export function createOnlineChessPosition(){return makePosition();}
+export function getOnlineChessMoves(position){return legalMoves(position).map(move=>JSON.parse(JSON.stringify(move)));}
+export function applyOnlineChessMove(position,request){
+  if(!position||!request||!request.from||!request.to)return null;
+  const candidate=legalMoves(position).find(move=>
+    move.from.r===Number(request.from.r)&&move.from.c===Number(request.from.c)&&
+    move.to.r===Number(request.to.r)&&move.to.c===Number(request.to.c));
+  return candidate?applyMove(position,candidate):null;
+}
+export function getOnlineChessStatus(position){
+  const moves=legalMoves(position),check=inCheck(position,position.turn);
+  if(!moves.length)return {done:true,winner:check?(position.turn==="w"?1:0):null,text:check?"Checkmate.": "Draw by stalemate."};
+  return {done:false,winner:null,text:(position.turn==="w"?"White":"Black")+" to move"+(check?" · Check":"")};
+}
+
 export { mountChess };
